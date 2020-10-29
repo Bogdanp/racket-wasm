@@ -99,12 +99,14 @@
         [(instr:if type then-code else-code)
          (pop! instr i32)
          (define ftype (functype null (if type (list type) null)))
-         (define then-errors (type-errors instr m then-code ftype locals (add1 depth)))
-         (unless (null? then-errors)
-           (return then-errors))
-         (define else-errors (type-errors instr m else-code ftype locals (add1 depth)))
-         (unless (null? else-errors)
-           (return else-errors))
+         (when then-code
+           (define then-errors (type-errors instr m then-code ftype locals (add1 depth)))
+           (unless (null? then-errors)
+             (return then-errors)))
+         (when else-code
+           (define else-errors (type-errors instr m else-code ftype locals (add1 depth)))
+           (unless (null? else-errors)
+             (return else-errors)))
          (when type
            (push! type))]
 
@@ -126,7 +128,7 @@
     [(= (length expected) (length found))
      (for/list ([et (in-list expected)]
                 [ft (in-list found)]
-                #:unless (type-unify ft et))
+                #:unless (type-unify et ft))
        (err who "type error~n  expected: ~v~n  found: ~v" et ft))]
 
     [else

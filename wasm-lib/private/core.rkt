@@ -4,7 +4,6 @@
                      racket/syntax)
          racket/generic
          racket/match
-         racket/struct
          syntax/parse/define
          "error.rkt")
 
@@ -22,19 +21,25 @@
   [(define (write-proc t out _mode)
      (display (valtype-id t) out))]
   #:methods gen:type
-  [(define (type-unify t other)
-     (and (eq? t other) t))])
+  [(define/generic super-unify type-unify)
+   (define (type-unify t other)
+     (cond
+       [(valtype? other) (eq? t other)]
+       [(typevar? other) (super-unify other t)]
+       [else #f]))])
 
 (struct typevar (id [vt #:mutable])
   #:transparent
   #:methods gen:custom-write
   [(define (write-proc t out _mode)
-     (display `(typevar ,(typevar-id t)) out))]
+     (define id (typevar-id t))
+     (define vt (typevar-vt t))
+     (display `(typevar ,id ,(or vt '_)) out))]
   #:methods gen:type
   [(define/generic super-unify type-unify)
    (define (type-unify t other)
      (match t
-       [(typevar _ #f) (begin0 t (set-typevar-vt! t other))]
+       [(typevar _ #f) (begin0 #t (set-typevar-vt! t other))]
        [(typevar _ vt) (super-unify vt other)]))])
 
 (define-syntax-parser define-valtype
