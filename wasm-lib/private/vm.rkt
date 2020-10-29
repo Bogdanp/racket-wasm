@@ -45,10 +45,6 @@
 
 (define (vm-apply v idx args)
   (define m (vm-mod v))
-  (define typeidx (vector-ref (mod-functions m) idx))
-  (define type (vector-ref (mod-types m) typeidx))
-  (typecheck-args idx type args)
-
   (define code (vector-ref (mod-codes m) idx))
   (define instrs (code-instrs code))
   (define locals
@@ -58,10 +54,7 @@
                       (locals-n l)))))
   (for ([(arg posn) (in-indexed args)])
     (vector-set! locals posn arg))
-
-  (define results (vm-exec v instrs locals))
-  (begin0 results
-    (typecheck-results idx type results)))
+  (vm-exec v instrs locals))
 
 (define (vm-exec v instrs locals [stack null])
   (define m (vm-mod v))
@@ -118,40 +111,12 @@
          (define typeidx (vector-ref fns funcidx))
          (define type (vector-ref types typeidx))
          (define-values (args stack-remainder)
-           (split-at stack (vector-length (functype-params type))))
+           (split-at stack (length (functype-params type))))
          (append (vm-apply v funcidx args) stack-remainder)]))
 
     (if (< ip maxip)
         (loop (add1 ip) new-stack)
         new-stack)))
-
-(define (typecheck-args who t args)
-  (define params (functype-params t))
-  (unless (eqv? (length args) (vector-length params))
-    (raise-wasm-exec-error "arity error~n  expected: ~s~n  got: ~s~n  in a call to: ~s" params args who))
-  (for ([t (in-vector params)]
-        [a (in-list args)]
-        [i (in-naturals)])
-    (unless (typechecks? t a)
-      (raise-wasm-exec-error "type error~n  expected: ~s~n  got: ~s~n  at index: ~s~n  in a call to: ~s" t a i who))))
-
-(define (typecheck-results who t r)
-  (define results (functype-results t))
-  (unless (= (length r) (vector-length results))
-    (raise-wasm-exec-error "arity error~n  expected: ~s~n  got: ~s~n  in a result from: ~s" results r who))
-  (for ([t (in-vector results)]
-        [v (in-list r)]
-        [i (in-naturals)])
-    (unless (typechecks? t v)
-      (raise-wasm-exec-error "result type error~n  expected: ~s~n  got: ~s~n  at index: ~s~n  in a result from: ~s" t v i who))))
-
-(define (typechecks? t v)
-  (match t
-    ['(valtype i32) (i32? v)]
-    ['(valtype i64) (i64? v)]
-    ['(valtype f32) (flonum? v)]
-    ['(valtype f64) (double-flonum? v)]
-    [_ #f]))
 
 (define (split-at ys pos)
   (for/fold ([xs null] [ys ys]
