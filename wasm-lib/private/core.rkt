@@ -16,46 +16,41 @@
 (define-generics type
   (type-unify type other))
 
+(struct valtype (id)
+  #:transparent
+  #:methods gen:custom-write
+  [(define (write-proc t out _mode)
+     (display (valtype-id t) out))]
+  #:methods gen:type
+  [(define (type-unify t other)
+     (and (eq? t other) t))])
+
+(struct typevar (id [vt #:mutable])
+  #:transparent
+  #:methods gen:custom-write
+  [(define (write-proc t out _mode)
+     (display `(typevar ,(typevar-id t)) out))]
+  #:methods gen:type
+  [(define/generic super-unify type-unify)
+   (define (type-unify t other)
+     (match t
+       [(typevar _ #f) (begin0 t (set-typevar-vt! t other))]
+       [(typevar _ vt) (super-unify vt other)]))])
+
 (define-syntax-parser define-valtype
   [(_ name:id)
    #:with name? (format-id #'name "~a?" #'name)
    #'(begin
-       (define-values (name name?)
-         (let ()
-           (struct name ()
-             #:transparent
-             #:methods gen:custom-write
-             [(define write-proc
-                (make-constructor-style-printer
-                 (lambda (o) 'name)
-                 (lambda (o) null)))]
-             #:methods gen:type
-             [(define (type-unify t other)
-                (and (eq? t other) t))])
-           (values (name) name?)))
+       (define name (valtype 'name))
+       (define (name? v) (eq? v name))
        (provide name name?))])
 
 (define-syntax-parser define-typevar
   [(_ name:id)
    #:with name? (format-id #'name "~a?" #'name)
-   #:with name-vt (format-id #'name "~a-vt" #'name)
-   #:with set-name-vt! (format-id #'name "set-~a-vt!" #'name)
-   #'(define-values (name name?)
-       (let ()
-         (struct name ([vt #:mutable])
-           #:transparent
-           #:methods gen:custom-write
-           [(define write-proc
-              (make-constructor-style-printer
-               (lambda (o) 'name)
-               (lambda (o) (list (or (name-vt o) '_)))))]
-           #:methods gen:type
-           [(define/generic super-type-unify type-unify)
-            (define (type-unify t other)
-              (match t
-                [(name #f) (begin0 t (set-name-vt! t other))]
-                [(name vt) (super-type-unify vt other)]))])
-         (values (name #f) name?)))])
+   #'(begin
+       (define name (typevar 'name #f))
+       (define (name? v) (eq? v name)))])
 
 (define-syntax-rule (define-valtypes name ...)
   (begin (define-valtype name) ...))
@@ -139,7 +134,7 @@
 ;;  :=
 ;;   | 'forall' id+
 ;; types
-;;   := '(' id* ')'
+;;  := '(' id* ')'
 (define-instructions
   ;; Control instructions
   [unreachable]
