@@ -159,8 +159,8 @@
   [call_indirect (idx tableidx)]
 
   ;; Parametric instructions
-  [drop   : forall t [t      ] -> [   ]]
-  [select : forall t [t t i32] -> [i32]]
+  [drop   : forall t [t      ] -> [ ]]
+  [select : forall t [t t i32] -> [t]]
 
   ;; Variable instructions
   [local.get  (idx) : forall t [ ] -> [t]]
