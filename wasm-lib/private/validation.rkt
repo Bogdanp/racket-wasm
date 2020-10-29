@@ -96,6 +96,19 @@
         [(instr:unreachable)
          (void)]
 
+        [(instr:br label)
+         (unless (<= label depth)
+           (return (list (err instr "invalid depth (max: ~a)" depth))))]
+
+        [(instr:block type block-code)
+         (define ftype (functype null (if type (list type) null)))
+         (when block-code
+           (define errors (type-errors instr m block-code ftype locals (add1 depth)))
+           (unless (null? errors)
+             (return errors)))
+         (when type
+           (push! type))]
+
         [(instr:if type then-code else-code)
          (pop! instr i32)
          (define ftype (functype null (if type (list type) null)))
