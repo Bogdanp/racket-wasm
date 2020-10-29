@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require racket/contract
+         racket/list
          racket/match
          racket/port
          racket/vector
@@ -58,17 +59,17 @@
     (for*/fold ([errors null])
                ([(typeidx idx) (in-indexed (or (mod-functions m) null))]
                 [here (in-value (funcidx idx))]
-                [type (in-value (type-ref here typeidx))]
-                [code (in-value (code-ref here idx))])
+                [t (in-value (type-ref here typeidx))]
+                [c (in-value (code-ref here idx))])
       (define locals
         (apply
          vector-append
-         (list->vector (functype-params type))
-         (for/list ([l (in-vector (code-locals code))])
+         (list->vector (functype-params t))
+         (for/list ([l (in-vector (code-locals c))])
            (make-vector (locals-n l) (locals-valtype l)))))
-      (append errors (type-errors here m code type locals)))))
+      (append errors (type-errors here m (code-instrs c) t locals)))))
 
-(define (type-errors where m c t locals)
+(define (type-errors where m instrs t locals [depth 0])
   (let/ec return
     (define locals/max (sub1 (vector-length locals)))
     (define (local-ref who idx)
@@ -82,15 +83,30 @@
       (set! stack (append vts stack)))
 
     (define (pop! who . vts)
-      (define errors (typecheck who stack vts))
+      (define-values (ets remaining-stack)
+        (split-at stack (min (length vts)
+                             (length stack))))
+      (define errors (typecheck who vts ets))
       (unless (null? errors)
         (return errors))
-      (set! stack null))
+      (set! stack remaining-stack))
 
-    (for ([instr (in-vector (code-instrs c))])
+    (for ([instr (in-vector instrs)])
       (match instr
         [(instr:unreachable)
          (void)]
+
+        [(instr:if type then-code else-code)
+         (pop! instr i32)
+         (define ftype (functype null (if type (list type) null)))
+         (define then-errors (type-errors instr m then-code ftype locals (add1 depth)))
+         (unless (null? then-errors)
+           (return then-errors))
+         (define else-errors (type-errors instr m else-code ftype locals (add1 depth)))
+         (unless (null? else-errors)
+           (return else-errors))
+         (when type
+           (push! type))]
 
         [(instr:local.get idx)
          (push! (local-ref instr idx))]
