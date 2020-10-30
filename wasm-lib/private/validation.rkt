@@ -113,28 +113,33 @@
       (define errors (typecheck who vts ets))
       (unless (null? errors)
         (return errors))
-      (set! stack remaining-stack))
+      (begin0 ets
+        (set! stack remaining-stack)))
 
-    (define (tc! instr)
-      (define it (instruction-type instr))
-      (apply pop! instr (functype-params it))
-      (apply push! (functype-results it)))
+    ;; [t*    ] -> [   ]
+    ;; [t* a  ] -> [a  ]
+    ;; [t* a b] -> [a b]
+    (define (keep! who . vts)
+      (set! stack (apply pop! who vts)))
 
     (define (check! instr)
       (match instr
         [(instr:unreachable)
          (void)]
 
+        ;; [t1* t*] -> [t2*]
         [(instr:br lbl)
+         (define ft (label-ref instr lbl))
+         (apply keep! instr (functype-results ft))]
+
+        ;; [t* i32] -> [t*]
+        [(instr:br_if lbl)
+         (pop! instr i32)
          (define ft (label-ref instr lbl))
          (define errors
            (typecheck instr (functype-results ft) stack))
          (unless (null? errors)
            (return errors))]
-
-        [(instr:br_if lbl)
-         (tc! instr)
-         (check! (instr:br lbl))]
 
         [(instr:block (typeidx idx) block-code)
          (define ft (type-ref instr idx))
@@ -145,8 +150,7 @@
            (define errors (block-errors instr ft block-code))
            (unless (null? errors)
              (return errors)))
-         (when type
-           (apply push! (functype-results type)))]
+         (apply push! (functype-results ft))]
 
         [(instr:if (typeidx idx) then-code else-code)
          (define ft (type-ref instr idx))
@@ -162,8 +166,7 @@
            (define else-errors (block-errors instr ft else-code))
            (unless (null? else-errors)
              (return else-errors)))
-         (when type
-           (apply push! (functype-results ft)))]
+         (apply push! (functype-results ft))]
 
         [(instr:local.get idx)
          (push! (local-ref instr idx))]
@@ -177,16 +180,21 @@
          (push! vt)]
 
         [(instr:global.get idx)
-         (define gt (global-ref instr idx))
+         (define g (global-ref instr idx))
+         (define gt (global-type g))
          (push! (globaltype-valtype gt))]
 
         [(instr:global.set idx)
-         (define gt (global-ref instr idx))
+         (define g (global-ref instr idx))
+         (define gt (global-type g))
          (unless (globaltype-mutable? gt)
            (return (list (err instr "cannot set immutable global ~a" idx))))
          (pop! instr (globaltype-valtype gt))]
 
-        [instr (tc! instr)]))
+        [_
+         (define it (instruction-type instr))
+         (apply pop! instr (functype-params it))
+         (apply push! (functype-results it))]))
 
     (for ([instr (in-vector instrs)])
       (check! instr))
