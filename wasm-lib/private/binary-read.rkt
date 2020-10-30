@@ -127,7 +127,7 @@
           (read-valtype! in buf)))
 
 (define (read-expr! in buf [ender? (lambda (b)
-                                     (eqv? b #x0B))])
+                                     (= b #x0B))])
   (let loop ([instrs null])
     (define b (read-byte! "exprt" buf in))
     (define instr
@@ -143,17 +143,16 @@
                 (instr:loop type code))]
         [#x04 (let-values ([(type) (read-blocktype! in buf)]
                            [(then-code end) (read-expr! in buf (lambda (opcode)
-                                                                 (or (eqv? opcode #x05)
-                                                                     (eqv? opcode #x0B))))])
-                (instr:if type then-code (and (eqv? end #x05)
+                                                                 (or (= opcode #x05)
+                                                                     (= opcode #x0B))))])
+                (instr:if type then-code (and (= end #x05)
                                               (let-values ([(else-code _) (read-expr! in buf)])
                                                 else-code))))]
         [#x0C (instr:br (read-u32! in buf))]
         [#x0D (instr:br_if (read-u32! in buf))]
-        [#x0E (let* ([froms (read-vectorof! read-u32! in buf)]
-                     [tos (for/vector ([_ (in-range (vector-length froms))])
-                            (read-u32! in buf))])
-                (instr:br_table froms tos))]
+        [#x0E (instr:br_table
+               (read-vectorof! read-u32! in buf)
+               (read-u32! in buf))]
         [#x0F (instr:return)]
         [#x10 (instr:call (read-u32! in buf))]
         [#x11 (instr:call_indirect

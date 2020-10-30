@@ -153,7 +153,7 @@
 
   [br       (lbl)]
   [br_if    (lbl)]
-  [br_table (from to)]
+  [br_table (tbl lbl)]
 
   [return]
   [call          (idx)]
