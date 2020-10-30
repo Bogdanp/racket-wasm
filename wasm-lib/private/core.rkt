@@ -94,6 +94,7 @@
 (define-record globaltype (valtype mutable?))
 (define-record import (mod name description))
 (define-record export (name description))
+(define-record global (type code))
 (define-record functype (params results))
 (define-record element (table offset init))
 (define-record locals (n valtype))
@@ -359,7 +360,7 @@
     (provide (struct-out name) ...)))
 
 (define-sections
-  [custom-section (name data)]
+  [custom-section (data)]
   [type-section (functypes)]
   [import-section (imports)]
   [function-section (typeidxs)]
@@ -411,8 +412,8 @@
 
 (define (mod-add-section! m s)
   (match s
-    [(custom-section name data)
-     (hash-set! (mod-customs m) name data)]
+    [(custom-section data)
+     (set-mod-customs! m (cons data (mod-customs m)))]
 
     [_
      (mod-add-section-once! m s)]))

@@ -24,9 +24,9 @@
 
 (define current-custom-section-reader
   (make-parameter
-   (lambda (name len in buf)
+   (lambda (len in buf)
      (skip-n-bytes! "custom section" len in buf)
-     (custom-section name #f))))
+     (custom-section #f))))
 
 (define (read-wasm in [buf (make-bytes (* 64 1024))])
   (read-n-bytes! "magic header" buf 4 in)
@@ -63,9 +63,8 @@
     [idx (oops! in "unexpected section idx ~a" idx)]))
 
 (define (read-custom-section! in buf)
-  (define name (read-name! in buf))
   (define len (read-u32! in buf))
-  ((current-custom-section-reader) name len in buf))
+  ((current-custom-section-reader) len in buf))
 
 (define (read-type-section! in buf)
   (skip-len! in buf)
@@ -89,10 +88,7 @@
 
 (define (read-global-section! in buf)
   (skip-len! in buf)
-  (define type (read-globaltype! in buf))
-  (define-values (code _)
-    (read-expr! in buf))
-  (global-section type code))
+  (global-section (read-vectorof! read-global! in buf)))
 
 (define (read-export-section! in buf)
   (skip-len! in buf)
@@ -356,11 +352,11 @@
                 [5 (instr:i64.trunc_sat_f32_u)]
                 [6 (instr:i64.trunc_sat_f64_s)]
                 [7 (instr:i64.trunc_sat_f64_u)]
-                [opcode (oops! "unexpected saturating truncation opcode: ~s" opcode)])]
+                [opcode (oops! in "unexpected saturating truncation opcode: ~s" opcode)])]
 
         [(? ender?) 'end]
 
-        [opcode (oops! "unexpected opcode: ~s" opcode)]))
+        [opcode (oops! in "unexpected opcode: ~s" opcode)]))
     (if (eq? instr 'end)
         (values (list->vector (reverse instrs)) b)
         (loop (cons instr instrs)))))
@@ -396,6 +392,12 @@
 (define (read-export! in buf)
   (export (read-name! in buf)
           (read-exportdesc! in buf)))
+
+(define (read-global! in buf)
+  (define type (read-globaltype! in buf))
+  (define-values (code _)
+    (read-expr! in buf))
+  (global type code))
 
 (define (read-importdesc! in buf)
   (read-n-bytes! "importdesc" buf 1 in)
