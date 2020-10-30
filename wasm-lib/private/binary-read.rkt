@@ -463,8 +463,8 @@
 
 (define (read-mut! in buf)
   (match (read-byte! "mut" buf in)
-    [#x00 'const]
-    [#x01 'var]
+    [#x00 #f]
+    [#x01 #t]
     [b (oops! in "unexpected value while reading mut: ~s" b)]))
 
 (define (read-functype! in buf)
