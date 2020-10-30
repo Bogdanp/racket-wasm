@@ -141,6 +141,10 @@
          (unless (null? errors)
            (return errors))]
 
+        ;; [t1* t*] -> [t2*]
+        [(instr:return)
+         (apply keep! instr (functype-results type))]
+
         [(instr:block (typeidx idx) block-code)
          (define ft (type-ref instr idx))
          (check! (instr:block ft block-code))]
