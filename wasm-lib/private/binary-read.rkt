@@ -129,8 +129,7 @@
 (define (read-expr! in buf [ender? (lambda (b)
                                      (eqv? b #x0B))])
   (let loop ([instrs null])
-    (read-n-bytes! "expr" buf 1 in)
-    (define b (bytes-ref buf 0))
+    (define b (read-byte! "exprt" buf in))
     (define instr
       (match b
         ;; Control instructions
@@ -400,8 +399,7 @@
   (global type code))
 
 (define (read-importdesc! in buf)
-  (read-n-bytes! "importdesc" buf 1 in)
-  (match (bytes-ref buf 0)
+  (match (read-byte! "importdesc" buf in)
     [#x00 (typeidx (read-u32! in buf))]
     [#x01 (read-tabletype! in buf)]
     [#x02 (read-memtype! in buf)]
@@ -409,8 +407,7 @@
     [b (oops! in "unexpected value while reading importdesc: ~s" b)]))
 
 (define (read-exportdesc! in buf)
-  (read-n-bytes! "exportdesc" buf 1 in)
-  (match (bytes-ref buf 0)
+  (match (read-byte! "exportdesc" buf in)
     [#x00 (read-funcidx! in buf)]
     [#x01 (read-tableidx! in buf)]
     [#x02 (read-memidx! in buf)]
@@ -447,21 +444,18 @@
               (read-mut! in buf)))
 
 (define (read-elemtype! in buf)
-  (read-n-bytes! "elemtype" buf 1 in)
-  (match (bytes-ref buf 0)
+  (match (read-byte! "elemtype" buf in)
     [#x70 funcref]
     [b (oops! in "unexpected value while reading elemtype: ~s" b)]))
 
 (define (read-limits! in buf)
-  (read-n-bytes! "limits" buf 1 in)
-  (match (bytes-ref buf 0)
+  (match (read-byte! "limits" buf in)
     [#x00 (limits (read-u32! in buf) #f)]
     [#x01 (limits (read-u32! in buf) (read-u32! in buf))]
     [b (oops! in "unexpected value while reading limits: ~s" b)]))
 
 (define (read-valtype! in buf)
-  (read-n-bytes! "valtype" buf 1 in)
-  (match (bytes-ref buf 0)
+  (match (read-byte! "valtype" buf in)
     [#x7F i32]
     [#x7E i64]
     [#x7D f32]
@@ -469,15 +463,13 @@
     [b (oops! in "unexpected value while reading valtype: ~s" b)]))
 
 (define (read-mut! in buf)
-  (read-n-bytes! "mut" buf 1 in)
-  (match (bytes-ref buf 0)
+  (match (read-byte! "mut" buf in)
     [#x00 'const]
     [#x01 'var]
     [b (oops! in "unexpected value while reading mut: ~s" b)]))
 
 (define (read-functype! in buf)
-  (read-n-bytes! "functype" buf 1 in)
-  (define b (bytes-ref buf 0))
+  (define b (read-byte! "functype" buf in))
   (unless (eqv? b #x60)
     (oops! in "unexpected value while reading functype: ~s" b))
   (define params (read-restype! in buf))
@@ -522,21 +514,24 @@
           (loop (+ offset n-read)
                 (- remaining n-read))))))
 
+(define (read-byte! what buf in)
+  (read-n-bytes! what buf 1 in)
+  (bytes-ref buf 0))
+
 (define (read-uint! in buf)
   (let loop ([n 0]
              [s 0])
-    (read-n-bytes! "unsigned integer" buf 1 in)
-    (define b (bytes-ref buf 0))
+    (define b (read-byte! "unsigned integer" buf in))
     (define new-n (bitwise-ior n (arithmetic-shift (bitwise-and b #x7F) s)))
     (cond
       [(zero? (bitwise-and b #x80)) new-n]
       [else (loop new-n (+ s 7))])))
 
 (define (read-sint! bits in buf)
+  (define what (format "signed ~abit integer" bits))
   (let loop ([n 0]
              [s 0])
-    (read-n-bytes! (format "signed ~abit integer" bits) buf 1 in)
-    (define b (bytes-ref buf 0))
+    (define b (read-byte! what buf in))
     (define new-n (bitwise-ior n (arithmetic-shift (bitwise-and b #x7F) s)))
     (cond
       [(zero? (bitwise-and b #x80))
