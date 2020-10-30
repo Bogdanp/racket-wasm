@@ -61,21 +61,37 @@
                 [here (in-value (funcidx idx))]
                 [t (in-value (type-ref here typeidx))]
                 [c (in-value (code-ref here idx))])
+      (define globals
+        (or (mod-globals m) (vector)))
       (define locals
         (apply
          vector-append
          (list->vector (functype-params t))
          (for/list ([l (in-vector (code-locals c))])
            (make-vector (locals-n l) (locals-valtype l)))))
-      (append errors (type-errors here m (code-instrs c) t locals)))))
+      (append errors (type-errors here globals locals t (code-instrs c))))))
 
-(define (type-errors where m instrs t locals [depth 0])
+(define (type-errors where globals locals type instrs [labels (list type)])
   (let/ec return
     (define locals/max (sub1 (vector-length locals)))
     (define (local-ref who idx)
       (when (> idx locals/max)
         (return (list (err who "local index out of bounds"))))
       (vector-ref locals idx))
+
+    (define globals/max (sub1 (vector-length globals)))
+    (define (global-ref who idx)
+      (when (> idx globals/max)
+        (return (list (err who "global index out of bounds"))))
+      (vector-ref globals idx))
+
+    (define (label-ref who lbl)
+      (unless (< lbl (length labels))
+        (return (list (err who "invalid label"))))
+      (list-ref labels lbl))
+
+    (define (block-errors who ftype block-instrs)
+      (type-errors who globals locals ftype block-instrs (cons ftype labels)))
 
     (define stack null)
 
@@ -91,19 +107,31 @@
         (return errors))
       (set! stack remaining-stack))
 
-    (for ([instr (in-vector instrs)])
+    (define (tc! instr)
+      (define it (instruction-type instr))
+      (apply pop! instr (functype-params it))
+      (apply push! (functype-results it)))
+
+    (define (check! instr)
       (match instr
         [(instr:unreachable)
          (void)]
 
-        [(instr:br label)
-         (unless (<= label depth)
-           (return (list (err instr "invalid depth (max: ~a)" depth))))]
+        [(instr:br lbl)
+         (define ft (label-ref instr lbl))
+         (define errors
+           (typecheck instr (functype-results ft) stack))
+         (unless (null? errors)
+           (return errors))]
+
+        [(instr:br_if lbl)
+         (tc! instr)
+         (check! (instr:br lbl))]
 
         [(instr:block type block-code)
          (define ftype (functype null (if type (list type) null)))
          (when block-code
-           (define errors (type-errors instr m block-code ftype locals (add1 depth)))
+           (define errors (block-errors instr ftype block-code))
            (unless (null? errors)
              (return errors)))
          (when type
@@ -113,11 +141,11 @@
          (pop! instr i32)
          (define ftype (functype null (if type (list type) null)))
          (when then-code
-           (define then-errors (type-errors instr m then-code ftype locals (add1 depth)))
+           (define then-errors (block-errors instr ftype then-code))
            (unless (null? then-errors)
              (return then-errors)))
          (when else-code
-           (define else-errors (type-errors instr m else-code ftype locals (add1 depth)))
+           (define else-errors (block-errors instr ftype else-code))
            (unless (null? else-errors)
              (return else-errors)))
          (when type
@@ -129,12 +157,27 @@
         [(instr:local.set idx)
          (pop! instr (local-ref instr idx))]
 
-        [_
-         (define it (instruction-type instr))
-         (apply pop! instr (functype-params it))
-         (apply push! (functype-results it))]))
+        [(instr:local.tee idx)
+         (define vt (local-ref instr idx))
+         (pop! instr vt)
+         (push! vt)]
 
-    (typecheck where (functype-results t) stack)))
+        [(instr:global.get idx)
+         (define gt (global-ref instr idx))
+         (push! (globaltype-valtype gt))]
+
+        [(instr:global.set idx)
+         (define gt (global-ref instr idx))
+         (unless (globaltype-mutable? gt)
+           (return (list (err instr "cannot set immutable global ~a" idx))))
+         (pop! instr (globaltype-valtype gt))]
+
+        [instr (tc! instr)]))
+
+    (for ([instr (in-vector instrs)])
+      (check! instr))
+
+    (typecheck where (functype-results type) stack)))
 
 (define (typecheck who expected found)
   (cond
