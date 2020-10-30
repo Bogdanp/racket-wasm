@@ -124,8 +124,10 @@
 
     (define (check! instr)
       (match instr
+        ;; Control Instructions
+        ;; [t1*] [t2*]
         [(instr:unreachable)
-         (void)]
+         (set! stack (functype-results type))]
 
         ;; [t1* t*] -> [t2*]
         [(instr:br lbl)
@@ -172,6 +174,7 @@
              (return else-errors)))
          (apply push! (functype-results ft))]
 
+        ;; Variable Instructions
         [(instr:local.get idx)
          (push! (local-ref instr idx))]
 
@@ -195,6 +198,10 @@
            (return (list (err instr "cannot set immutable global ~a" idx))))
          (pop! instr (globaltype-valtype gt))]
 
+        ;; Memory Instructions
+        ;; ...
+
+        ;; Everything Else
         [_
          (define it (instruction-type instr))
          (apply pop! instr (functype-params it))
