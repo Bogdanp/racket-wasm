@@ -45,33 +45,34 @@
     (append errors (limit-errors (memidx idx) m k))))
 
 (define (function-errors m)
-  (define types (mod-types m))
-  (define codes (mod-codes m))
+  (define types (or (mod-types m) (vector)))
+  (define codes (or (mod-codes m) (vector)))
+  (define globals (or (mod-globals m) (vector)))
   (let/ec return
+    (define types/max (sub1 (vector-length types)))
     (define (type-ref who idx)
-      (when (> idx (vector-length types))
-        (return (list (err who "invalid typeidx ~a" idx))))
+      (when (> idx types/max)
+        (return (list (err who "type index out of bounds ~a (max: ~a)" idx types/max))))
       (vector-ref types idx))
+    (define codes/max (sub1 (vector-length codes)))
     (define (code-ref who idx)
-      (when (> idx (vector-length codes))
-        (return (list (err who "missing code at index ~a" idx))))
+      (when (> idx codes/max)
+        (return (list (err who "missing code at index ~a (max: ~a)" idx codes/max))))
       (vector-ref codes idx))
     (for*/fold ([errors null])
                ([(typeidx idx) (in-indexed (or (mod-functions m) null))]
                 [here (in-value (funcidx idx))]
                 [t (in-value (type-ref here typeidx))]
                 [c (in-value (code-ref here idx))])
-      (define globals
-        (or (mod-globals m) (vector)))
       (define locals
         (apply
          vector-append
          (list->vector (functype-params t))
          (for/list ([l (in-vector (code-locals c))])
            (make-vector (locals-n l) (locals-valtype l)))))
-      (append errors (type-errors here globals locals t (code-instrs c))))))
+      (append errors (type-errors here types globals locals t (code-instrs c))))))
 
-(define (type-errors where globals locals type instrs [labels (list type)])
+(define (type-errors where types globals locals type instrs [labels (list type)])
   (let/ec return
     (define locals/max (sub1 (vector-length locals)))
     (define (local-ref who idx)
@@ -85,13 +86,20 @@
         (return (list (err who "global index out of bounds"))))
       (vector-ref globals idx))
 
+    (define labels/max (sub1 (length labels)))
     (define (label-ref who lbl)
-      (unless (< lbl (length labels))
-        (return (list (err who "invalid label"))))
+      (when (> lbl labels/max)
+        (return (list (err who "invalid label (max: ~a)" labels/max))))
       (list-ref labels lbl))
 
+    (define types/max (sub1 (vector-length types)))
+    (define (type-ref who idx)
+      (when (> idx types/max)
+        (return (list (err who "type index out of bounds ~a (max: ~a)" idx types/max))))
+      (vector-ref types idx))
+
     (define (block-errors who ftype block-instrs)
-      (type-errors who globals locals ftype block-instrs (cons ftype labels)))
+      (type-errors who types globals locals ftype block-instrs (cons ftype labels)))
 
     (define stack null)
 
@@ -128,28 +136,34 @@
          (tc! instr)
          (check! (instr:br lbl))]
 
-        [(instr:block type block-code)
-         (define ftype (functype null (if type (list type) null)))
+        [(instr:block (typeidx idx) block-code)
+         (define ft (type-ref instr idx))
+         (check! (instr:block ft block-code))]
+
+        [(instr:block ft block-code)
          (when block-code
-           (define errors (block-errors instr ftype block-code))
+           (define errors (block-errors instr ft block-code))
            (unless (null? errors)
              (return errors)))
          (when type
-           (push! type))]
+           (apply push! (functype-results type)))]
 
-        [(instr:if type then-code else-code)
+        [(instr:if (typeidx idx) then-code else-code)
+         (define ft (type-ref instr idx))
+         (check! (instr:if ft then-code else-code))]
+
+        [(instr:if ft then-code else-code)
          (pop! instr i32)
-         (define ftype (functype null (if type (list type) null)))
          (when then-code
-           (define then-errors (block-errors instr ftype then-code))
+           (define then-errors (block-errors instr ft then-code))
            (unless (null? then-errors)
              (return then-errors)))
          (when else-code
-           (define else-errors (block-errors instr ftype else-code))
+           (define else-errors (block-errors instr ft else-code))
            (unless (null? else-errors)
              (return else-errors)))
          (when type
-           (push! type))]
+           (apply push! (functype-results ft)))]
 
         [(instr:local.get idx)
          (push! (local-ref instr idx))]

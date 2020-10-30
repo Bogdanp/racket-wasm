@@ -362,14 +362,14 @@
 (define (read-blocktype! in buf)
   (case (peek-byte in)
     [(#x40)
-     (begin0 #f
+     (begin0 (functype null null)
        (read-byte in))]
 
     [(#x7F #x7E #x7D #x7C)
-     (read-valtype! in buf)]
+     (functype null (list (read-valtype! in buf)))]
 
     [else
-     (read-sint! 33 in buf)]))
+     (typeidx (read-sint! 33 in buf))]))
 
 (define (read-meminstr! f in buf)
   (f
