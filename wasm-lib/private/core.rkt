@@ -395,7 +395,7 @@
        (setter m v)] ...)))
 
 (define (make-empty-mod)
-  (mod (make-hash) #f #f #f #f #f #f #f #f #f #f #f))
+  (mod null #f #f #f #f #f #f #f #f #f #f #f))
 
 (define-mod-section-adder mod-add-section-once!
   [type-section mod-types set-mod-types!]
