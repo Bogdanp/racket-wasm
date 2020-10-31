@@ -138,24 +138,25 @@
          #:methods gen:instruction
          [(define (instruction-type _)
             (~? (begin (define-typevar v) ...))
-            (functype (~? (list t ...) null)
-                      (~? (list rt ...) null)))]))])
+            (functype (~? (reverse (list t ...)) null)
+                      (~? (reverse (list rt ...)) null)))]))])
 
 (define-syntax-rule (define-instructions (def ...) ...)
   (begin (define-instruction def ...) ...))
 
-;; instdef := id maybe-immediates maybe-type
+;; instdef
+;;  ::= id maybe-immediates maybe-type
 ;; maybe-immediates
-;;  :=
+;;  ::=
 ;;   | '(' id* ')'
 ;; maybe-type
-;;  :=
+;;  ::=
 ;;   | ':' maybe-typevardefs types '->' types
 ;; maybe-typevardefs
-;;  :=
+;;  ::=
 ;;   | 'forall' id+
 ;; types
-;;  := '(' id* ')'
+;;  ::= '(' id* ')'
 (define-instructions
   ;; Control instructions
   [unreachable]
@@ -176,7 +177,7 @@
 
   ;; Parametric instructions
   [drop   : forall t [t      ] -> [ ]]
-  [select : forall t [i32 t t] -> [t]]
+  [select : forall t [t t i32] -> [t]]
 
   ;; Variable instructions
   [local.get  (idx) : forall t [ ] -> [t]]
@@ -186,29 +187,29 @@
   [global.set (idx) : forall t [t] -> [t]]
 
   ;; Memory instructions
-  [i32.load     (arg) : [    i32] -> [i32]]
-  [i64.load     (arg) : [    i32] -> [i64]]
-  [f32.load     (arg) : [    i32] -> [f32]]
-  [f64.load     (arg) : [    i32] -> [f64]]
-  [i32.load8_s  (arg) : [    i32] -> [i32]]
-  [i32.load8_u  (arg) : [    i32] -> [i32]]
-  [i32.load16_s (arg) : [    i32] -> [i32]]
-  [i32.load16_u (arg) : [    i32] -> [i32]]
-  [i64.load8_s  (arg) : [    i32] -> [i64]]
-  [i64.load8_u  (arg) : [    i32] -> [i64]]
-  [i64.load16_s (arg) : [    i32] -> [i64]]
-  [i64.load16_u (arg) : [    i32] -> [i64]]
-  [i64.load32_s (arg) : [    i32] -> [i64]]
-  [i64.load32_u (arg) : [    i32] -> [i64]]
+  [i32.load     (arg) : [i32    ] -> [i32]]
+  [i64.load     (arg) : [i32    ] -> [i64]]
+  [f32.load     (arg) : [i32    ] -> [f32]]
+  [f64.load     (arg) : [i32    ] -> [f64]]
+  [i32.load8_s  (arg) : [i32    ] -> [i32]]
+  [i32.load8_u  (arg) : [i32    ] -> [i32]]
+  [i32.load16_s (arg) : [i32    ] -> [i32]]
+  [i32.load16_u (arg) : [i32    ] -> [i32]]
+  [i64.load8_s  (arg) : [i32    ] -> [i64]]
+  [i64.load8_u  (arg) : [i32    ] -> [i64]]
+  [i64.load16_s (arg) : [i32    ] -> [i64]]
+  [i64.load16_u (arg) : [i32    ] -> [i64]]
+  [i64.load32_s (arg) : [i32    ] -> [i64]]
+  [i64.load32_u (arg) : [i32    ] -> [i64]]
   [i32.store    (arg) : [i32 i32] -> [   ]]
-  [i64.store    (arg) : [i64 i32] -> [   ]]
-  [f32.store    (arg) : [f32 i32] -> [   ]]
-  [f64.store    (arg) : [f64 i32] -> [   ]]
+  [i64.store    (arg) : [i32 i64] -> [   ]]
+  [f32.store    (arg) : [i32 f32] -> [   ]]
+  [f64.store    (arg) : [i32 f64] -> [   ]]
   [i32.store8   (arg) : [i32 i32] -> [   ]]
   [i32.store16  (arg) : [i32 i32] -> [   ]]
-  [i64.store8   (arg) : [i64 i32] -> [   ]]
-  [i64.store16  (arg) : [i64 i32] -> [   ]]
-  [i64.store32  (arg) : [i64 i32] -> [   ]]
+  [i64.store8   (arg) : [i32 i64] -> [   ]]
+  [i64.store16  (arg) : [i32 i64] -> [   ]]
+  [i64.store32  (arg) : [i32 i64] -> [   ]]
 
   [memory.size (idx) : [   ] -> [i32]]
   [memory.grow (idx) : [i32] -> [i32]]
@@ -410,8 +411,7 @@
 
 (begin-for-syntax
   (define-syntax-class mod-section
-    (pattern name:id
-             #:with default #'(vector))
+    (pattern name:id #:with default #'(vector))
     (pattern (name:id default:expr))))
 
 (define-syntax-parser define-mod-struct

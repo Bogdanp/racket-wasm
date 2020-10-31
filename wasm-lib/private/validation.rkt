@@ -343,7 +343,7 @@
 (define (pp-ts ts)
   (call-with-output-string
    (lambda (out)
-     (for ([(t idx) (in-indexed ts)])
+     (for ([(t idx) (in-indexed (reverse ts))])
        (print t out)
        (unless (= idx (sub1 (length ts)))
          (display " " out))))))
