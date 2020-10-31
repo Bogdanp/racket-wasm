@@ -144,7 +144,7 @@
 (define-syntax-rule (define-instructions (def ...) ...)
   (begin (define-instruction def ...) ...))
 
-;; The spec both formats use the notation [a b] to denote a result
+;; The spec and both formats use the notation [a b] to denote a result
 ;; type where "b" is the top of the stack.  We do the same below, but
 ;; interally we store these types in reverse so that their order
 ;; matches our list-based stacks.
