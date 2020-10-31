@@ -474,7 +474,7 @@
   (functype params results))
 
 (define (read-restype! in buf)
-  (read-listof! read-valtype! in buf))
+  (reverse (read-listof! read-valtype! in buf)))
 
 
 ;; core readers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
