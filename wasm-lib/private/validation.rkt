@@ -6,7 +6,6 @@
          racket/list
          racket/match
          racket/port
-         racket/string
          racket/vector
          syntax/parse/define
          "core.rkt")
@@ -22,22 +21,23 @@
           validate-functions!))
   (with-handlers ([exn:fail:validation?
                    (lambda (e)
-                     (define message
-                       (string-trim
-                        (with-output-to-string
-                          (lambda ()
-                            (displayln (exn-message e))
-                            (define whos
-                              (match (exn:fail:validation-who e)
-                                [(list whos ...) whos]
-                                [who (list who)]))
-                            (printf "  at: ~v~n" (car whos))
-                            (for ([who (in-list (cdr whos))])
-                              (printf "  within: ~.v~n" who))))))
-                     (values #f message))])
+                     (values #f (format-error e)))])
     (for ([validate (in-list validators)])
       (validate m))
     (values #t #f)))
+
+(define (format-error e)
+  (with-output-to-string
+    (lambda ()
+      (displayln (exn-message e))
+      (define whos
+        (match (exn:fail:validation-who e)
+          [(list whos ...) whos]
+          [who (list who)]))
+      (printf "  at: ~v" (car whos))
+      (for ([who (in-list (cdr whos))])
+        (newline)
+        (printf "  within: ~.v" who)))))
 
 (define (validate-limit! who l k)
   (match l
