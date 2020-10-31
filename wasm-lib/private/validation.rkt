@@ -103,10 +103,9 @@
         (begin0 ets
           (set! stack remaining-stack)))
 
-      (define (tc! who instr)
-        (define it (instruction-type instr))
-        (apply pop! who (functype-params it))
-        (apply push! (functype-results it)))
+      (define (tc! who ft)
+        (apply pop! who (functype-params ft))
+        (apply push! (functype-results ft)))
 
       ;; [t*    ] -> [   ]
       ;; [t* a  ] -> [a  ]
@@ -181,18 +180,14 @@
 
           ;; [t1*] -> [t2*]
           [(instr:call idx)
-           (define ft (func-ref who idx))
-           (apply pop! who (functype-params ft))
-           (apply push! (functype-results ft))]
+           (tc! who (func-ref who idx))]
 
           ;; [t1* i32] -> [t2*]
           [(instr:call_indirect idx tblidx)
            (match (table-ref who tblidx)
              [(tabletype (? funcref?) _)
               (pop! who i32)
-              (define ft (type-ref who idx))
-              (apply pop! who (functype-params ft))
-              (apply push! (functype-results ft))]
+              (tc! who (type-ref who idx))]
 
              [_
               (raise-validation-error who "table elemtype is not funcref")])]
@@ -232,7 +227,7 @@
            (push! i32)]
 
           ;; Everything Else
-          [_ (tc! who instr)]))
+          [_ (tc! who (instruction-type instr))]))
 
       (for ([instr (in-vector instrs)])
         (check! (cons instr where) instr))
