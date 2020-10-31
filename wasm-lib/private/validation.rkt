@@ -259,7 +259,45 @@
            (pop! who (globaltype-valtype gt))]
 
           ;; Memory Instructions
-          ;; TODO: Validate memargs
+          [(or (instr:i32.load8_s arg)
+               (instr:i32.load8_u arg)
+               (instr:i64.load8_s arg)
+               (instr:i64.load8_u arg)
+               (instr:i32.store8 arg)
+               (instr:i64.store8 arg))
+           (memory-ref who 0)
+           (check-alignment! who arg 8)
+           (tc! who (instruction-type instr))]
+
+          [(or (instr:i32.load16_s arg)
+               (instr:i32.load16_u arg)
+               (instr:i64.load16_s arg)
+               (instr:i64.load16_u arg)
+               (instr:i32.store16 arg)
+               (instr:i64.store16 arg))
+           (memory-ref who 0)
+           (check-alignment! who arg 16)
+           (tc! who (instruction-type instr))]
+
+          [(or (instr:i32.load arg)
+               (instr:f32.load arg)
+               (instr:i64.load32_s arg)
+               (instr:i64.load32_u arg)
+               (instr:i32.store arg)
+               (instr:f32.store arg)
+               (instr:i64.store32 arg))
+           (memory-ref who 0)
+           (check-alignment! who arg 32)
+           (tc! who (instruction-type instr))]
+
+          [(or (instr:i64.load arg)
+               (instr:f64.load arg)
+               (instr:i64.store arg)
+               (instr:f64.store arg))
+           (memory-ref who 0)
+           (check-alignment! who arg 64)
+           (tc! who (instruction-type instr))]
+
           [(instr:memory.size idx)
            (memory-ref who idx)
            (tc! who (instruction-type instr))]
@@ -282,6 +320,11 @@
    (list->vector (functype-params t))
    (for/list ([l (in-vector (code-locals c))])
      (make-vector (locals-n l) (locals-valtype l)))))
+
+(define (check-alignment! who arg bits)
+  (define align (memarg-align arg))
+  (unless (<= (expt 2 align) (quotient bits 8))
+    (raise-validation-error who "invalid alignment ~v" align)))
 
 (define (typecheck! who expected found [context ""])
   (cond
