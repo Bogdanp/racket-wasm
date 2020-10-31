@@ -1,0 +1,30 @@
+on: [push, pull_request]
+name: CI/CD
+jobs:
+  build:
+    name: "Build on ${{ matrix.version }} (${{ matrix.variant }})"
+    runs-on: ${{ matrix.os }}
+
+    strategy:
+      fail-fast: false
+      matrix:
+        variant: ["CS", "regular"]
+        version: ["7.8"]
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@master
+
+    - name: Install Racket
+      uses: Bogdanp/setup-racket@v0.10
+      with:
+        architecture: x64
+        distribution: full
+        variant: ${{ matrix.variant }}
+        version: ${{ matrix.version }}
+
+    - name: Install pkg and deps
+      run: raco pkg install --batch --auto wasm-lib/
+
+    - name: Run tests
+      run: racket tests/validation/run-validation-tests.rkt
