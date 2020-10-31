@@ -31,7 +31,7 @@
                               (match (exn:fail:validation-who e)
                                 [(list whos ...) whos]
                                 [who (list who)]))
-                            (printf "  at: ~.v~n" (car whos))
+                            (printf "  at: ~v~n" (car whos))
                             (for ([who (in-list (cdr whos))])
                               (printf "  within: ~.v~n" who))))))
                      (values #f message))])
@@ -61,9 +61,11 @@
     [type-ref mod-types]
     [import-ref mod-imports]
     [func-ref* mod-functions]
-    [code-ref mod-codes]
+    [table-ref mod-tables]
+    [memory-ref mod-memories]
     [global-ref mod-globals]
-    [memory-ref mod-memories])
+    [code-ref mod-codes])
+
   (define imports/max (vector-length (mod-imports m)))
   (define (func-ref who idx)
     (cond
@@ -72,6 +74,7 @@
          [(import _ _ (typeidx tidx)) (type-ref who tidx)]
          [(import mod name _) (raise-validation-error who "import ~a.~a is not a function" mod name)])]
       [else (type-ref who (func-ref* who (- idx imports/max)))]))
+
   (for* ([(ftypeidx idx) (in-indexed (mod-functions m))]
          [here (in-value (list (funcidx idx)))]
          [type (in-value (type-ref here ftypeidx))]
@@ -100,6 +103,11 @@
         (begin0 ets
           (set! stack remaining-stack)))
 
+      (define (tc! who instr)
+        (define it (instruction-type instr))
+        (apply pop! who (functype-params it))
+        (apply push! (functype-results it)))
+
       ;; [t*    ] -> [   ]
       ;; [t* a  ] -> [a  ]
       ;; [t* a b] -> [a b]
@@ -107,6 +115,7 @@
         (set! stack (apply pop! who vts)))
 
       (define (check! who instr)
+        #;(printf "instr: ~.s stack: ~a~n" instr stack)
         (match instr
           ;; Control Instructions
           ;; [t1*] [t2*]
@@ -115,7 +124,7 @@
 
           ;; [t1* t*] -> [t2*]
           [(instr:br lbl)
-           (define ft (label-ref instr lbl))
+           (define ft (label-ref who lbl))
            (apply keep! who (functype-results ft))]
 
           ;; [t* i32] -> [t*]
@@ -176,6 +185,18 @@
            (apply pop! who (functype-params ft))
            (apply push! (functype-results ft))]
 
+          ;; [t1* i32] -> [t2*]
+          [(instr:call_indirect idx tblidx)
+           (match (table-ref who tblidx)
+             [(tabletype (? funcref?) _)
+              (pop! who i32)
+              (define ft (type-ref who idx))
+              (apply pop! who (functype-params ft))
+              (apply push! (functype-results ft))]
+
+             [_
+              (raise-validation-error who "table elemtype is not funcref")])]
+
           ;; Variable Instructions
           [(instr:local.get idx)
            (push! (local-ref who idx))]
@@ -202,22 +223,19 @@
 
           ;; Memory Instructions
           [(instr:memory.size idx)
-           (memory-ref idx)
+           (memory-ref who idx)
            (push! i32)]
 
           [(instr:memory.grow idx)
-           (memory-ref idx)
+           (memory-ref who idx)
            (pop! who i32)
            (push! i32)]
 
           ;; Everything Else
-          [_
-           (define it (instruction-type instr))
-           (apply pop! who (functype-params it))
-           (apply push! (functype-results it))]))
+          [_ (tc! who instr)]))
 
-      (for ([(instr idx) (in-indexed instrs)])
-        (check! (list* instr where) instr))
+      (for ([instr (in-vector instrs)])
+        (check! (cons instr where) instr))
 
       (typecheck! where (functype-results type) stack "result "))))
 
