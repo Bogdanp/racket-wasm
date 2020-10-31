@@ -150,7 +150,7 @@
 ;; matches our list-based stacks.
 
 ;; instdef
-;;  ::= id maybe-immediates maybe-type
+;;  ::= '[' id maybe-immediates maybe-type ']'
 ;; maybe-immediates
 ;;  ::=
 ;;   | '(' id* ')'
