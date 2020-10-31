@@ -18,6 +18,7 @@
   (define validators
     (list validate-tables!
           validate-memories!
+          validate-start!
           validate-functions!))
   (with-handlers ([exn:fail:validation?
                    (lambda (e)
@@ -55,6 +56,22 @@
   (define k (expt 2 16))
   (for ([(m idx) (in-indexed (mod-memories m))])
     (validate-limit! (memidx idx) m k)))
+
+(define (validate-start! m)
+  (define-vector-refs m
+    [type-ref mod-types]
+    [func-ref mod-functions])
+  (define who "start function")
+  (match (mod-start m)
+    [#f (void)]
+    [(funcidx idx)
+     (match (type-ref who (func-ref who idx))
+       [(functype '() '()) (void)]
+       [(functype params results)
+        (raise-validation-error who
+                                "start function must have type [] -> []~n  found: [~a] -> [~a]"
+                                (pp-ts params)
+                                (pp-ts results))])]))
 
 (define (validate-functions! m)
   (define-vector-refs m
@@ -217,14 +234,14 @@
            (pop! who (globaltype-valtype gt))]
 
           ;; Memory Instructions
+          ;; TODO: Validate memargs
           [(instr:memory.size idx)
            (memory-ref who idx)
-           (push! i32)]
+           (tc! who (instruction-type instr))]
 
           [(instr:memory.grow idx)
            (memory-ref who idx)
-           (pop! who i32)
-           (push! i32)]
+           (tc! who (instruction-type instr))]
 
           ;; Everything Else
           [_ (tc! who (instruction-type instr))]))
