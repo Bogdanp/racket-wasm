@@ -5,8 +5,8 @@
          racket/function
          racket/generic
          racket/match
-         syntax/parse/define
-         "error.rkt")
+         syntax/parse
+         syntax/parse/define)
 
 ;; values ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -108,11 +108,24 @@
 (provide
  instruction-type)
 
+(begin-for-syntax
+  (define (raise-instruction-literal-error stx)
+    (raise-syntax-error #f "may only be used within an instruction definition" stx)))
+
+(define-syntax-rule (define-instruction-literals set-id (id ...))
+  (begin
+    (define-syntax id raise-instruction-literal-error) ...
+    (begin-for-syntax
+      (define-literal-set set-id (id ...)))))
+
+(define-instruction-literals instruction-literals
+  [: -> forall])
+
 (define-generics instruction
   (instruction-type instruction))
 
 (define-syntax-parser define-instruction
-  #:datum-literals (: -> forall)
+  #:literal-sets (instruction-literals)
   [(_ name:id
       (~optional (f:id ...))
       (~optional (~seq : (~optional (~seq forall v:id ...+)) [t ...] -> [rt ...])))
