@@ -15,21 +15,18 @@
 
 (define/contract (mod-valid? m)
   (-> mod? (values boolean? (or/c #f string?)))
-  (define validators
-    (list validate-imports!
-          validate-tables!
-          validate-memories!
-          validate-globals!
-          validate-exports!
-          validate-start!
-          validate-elements!
-          validate-codes!
-          validate-datas!))
   (with-handlers ([exn:fail:validation?
                    (lambda (e)
                      (values #f (format-error e)))])
-    (for ([validate (in-list validators)])
-      (validate m))
+    (validate-imports! m)
+    (validate-tables! m)
+    (validate-memories! m)
+    (validate-globals! m)
+    (validate-exports! m)
+    (validate-start! m)
+    (validate-elements! m)
+    (validate-codes! m)
+    (validate-datas! m)
     (values #t #f)))
 
 (define (format-error e)
