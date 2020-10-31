@@ -31,9 +31,9 @@
                               (match (exn:fail:validation-who e)
                                 [(list whos ...) whos]
                                 [who (list who)]))
-                            (printf "  at: ~v~n" (car whos))
+                            (printf "  at: ~.v~n" (car whos))
                             (for ([who (in-list (cdr whos))])
-                              (printf "  within: ~v~n" who))))))
+                              (printf "  within: ~.v~n" who))))))
                      (values #f message))])
     (for ([validate (in-list validators)])
       (validate m))
@@ -59,9 +59,20 @@
 (define (validate-functions! m)
   (define-vector-refs m
     [type-ref mod-types]
+    [import-ref mod-imports]
+    [func-ref* mod-functions]
     [code-ref mod-codes]
-    [global-ref mod-globals])
-  (for* ([(ftypeidx idx) (in-indexed (or (mod-functions m) null))]
+    [global-ref mod-globals]
+    [memory-ref mod-memories])
+  (define imports/max (vector-length (mod-imports m)))
+  (define (func-ref who idx)
+    (cond
+      [(< idx imports/max)
+       (match (import-ref who idx)
+         [(import _ _ (typeidx tidx)) (type-ref who tidx)]
+         [(import mod name _) (raise-validation-error who "import ~a.~a is not a function" mod name)])]
+      [else (type-ref who (func-ref* who (- idx imports/max)))]))
+  (for* ([(ftypeidx idx) (in-indexed (mod-functions m))]
          [here (in-value (list (funcidx idx)))]
          [type (in-value (type-ref here ftypeidx))]
          [code (in-value (code-ref here idx))])
@@ -127,25 +138,42 @@
           [(instr:return)
            (apply keep! who (functype-results type))]
 
+          ;; [t1*] -> [t2*]
           [(instr:block (typeidx idx) block-code)
            (define ft (type-ref who idx))
            (check! who (instr:block ft block-code))]
 
+          ;; [t1*] -> [t2*]
           [(instr:block ft block-code)
-           (when block-code
-             (validate-block! who ft block-code))
+           (when block-code (validate-block! who ft block-code))
            (apply push! (functype-results ft))]
 
+          ;; [t1*] -> [t2*]
+          [(instr:loop (typeidx idx) block-code)
+           (define ft (type-ref who idx))
+           (check! who (instr:loop ft block-code))]
+
+          ;; [t1*] -> [t2*]
+          [(instr:loop ft block-code)
+           (when block-code (validate-block! who ft block-code))
+           (apply push! (functype-results ft))]
+
+          ;; [t1* i32] -> [t2*]
           [(instr:if (typeidx idx) then-code else-code)
            (define ft (type-ref who idx))
            (check! who (instr:if ft then-code else-code))]
 
+          ;; [t1* i32] -> [t2*]
           [(instr:if ft then-code else-code)
            (pop! who i32)
-           (when then-code
-             (validate-block! who ft then-code))
-           (when else-code
-             (validate-block! who ft else-code))
+           (when then-code (validate-block! who ft then-code))
+           (when else-code (validate-block! who ft else-code))
+           (apply push! (functype-results ft))]
+
+          ;; [t1*] -> [t2*]
+          [(instr:call idx)
+           (define ft (func-ref who idx))
+           (apply pop! who (functype-params ft))
            (apply push! (functype-results ft))]
 
           ;; Variable Instructions
@@ -173,7 +201,14 @@
            (pop! who (globaltype-valtype gt))]
 
           ;; Memory Instructions
-          ;; ...
+          [(instr:memory.size idx)
+           (memory-ref idx)
+           (push! i32)]
+
+          [(instr:memory.grow idx)
+           (memory-ref idx)
+           (pop! who i32)
+           (push! i32)]
 
           ;; Everything Else
           [_
