@@ -16,10 +16,15 @@
 (define/contract (mod-valid? m)
   (-> mod? (values boolean? (or/c #f string?)))
   (define validators
-    (list validate-tables!
+    (list validate-imports!
+          validate-tables!
           validate-memories!
+          validate-globals!
+          validate-exports!
           validate-start!
-          validate-functions!))
+          validate-elements!
+          validate-codes!
+          validate-datas!))
   (with-handlers ([exn:fail:validation?
                    (lambda (e)
                      (values #f (format-error e)))])
@@ -47,6 +52,10 @@
     [(limits lo hi) #:when (> lo hi) (raise-validation-error who "min greater than max")]
     [_ (void)]))
 
+;; TODO
+(define (validate-imports! m)
+  (void))
+
 (define (validate-tables! m)
   (define k (expt 2 32))
   (for ([(t idx) (in-indexed (mod-tables m))])
@@ -57,14 +66,22 @@
   (for ([(m idx) (in-indexed (mod-memories m))])
     (validate-limit! (memidx idx) m k)))
 
+;; TODO
+(define (validate-globals! m)
+  (void))
+
+;; TODO
+(define (validate-exports! m)
+  (void))
+
 (define (validate-start! m)
-  (define-vector-refs m
-    [type-ref mod-types]
-    [func-ref mod-functions])
   (define who "start function")
   (match (mod-start m)
     [#f (void)]
     [(funcidx idx)
+     (define-vector-refs m
+       [type-ref mod-types]
+       [func-ref mod-functions])
      (match (type-ref who (func-ref who idx))
        [(functype '() '()) (void)]
        [(functype params results)
@@ -73,7 +90,15 @@
                                 (pp-ts params)
                                 (pp-ts results))])]))
 
-(define (validate-functions! m)
+;; TODO
+(define (validate-elements! m)
+  (void))
+
+;; TODO
+(define (validate-datas! m)
+  (void))
+
+(define (validate-codes! m)
   (define-vector-refs m
     [type-ref mod-types]
     [import-ref mod-imports]
