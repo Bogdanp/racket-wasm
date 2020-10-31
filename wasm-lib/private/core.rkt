@@ -93,6 +93,7 @@
 (define-record tabletype (elemtype limits))
 (define-record memtype (limits))
 (define-record globaltype (valtype mutable?))
+(define-record memarg (align offset))
 (define-record import (mod name description))
 (define-record export (name description))
 (define-record global (type code))
@@ -185,29 +186,29 @@
   [global.set (idx) : forall t [t] -> [t]]
 
   ;; Memory instructions
-  [i32.load     (align offset) : [   ] -> [i32]]
-  [i64.load     (align offset) : [   ] -> [i64]]
-  [f32.load     (align offset) : [   ] -> [f32]]
-  [f64.load     (align offset) : [   ] -> [f64]]
-  [i32.load8_s  (align offset) : [   ] -> [i32]]
-  [i32.load8_u  (align offset) : [   ] -> [i32]]
-  [i32.load16_s (align offset) : [   ] -> [i32]]
-  [i32.load16_u (align offset) : [   ] -> [i32]]
-  [i64.load8_s  (align offset) : [   ] -> [i64]]
-  [i64.load8_u  (align offset) : [   ] -> [i64]]
-  [i64.load16_s (align offset) : [   ] -> [i64]]
-  [i64.load16_u (align offset) : [   ] -> [i64]]
-  [i64.load32_s (align offset) : [   ] -> [i64]]
-  [i64.load32_u (align offset) : [   ] -> [i64]]
-  [i32.store    (align offset) : [i32] -> [   ]]
-  [i64.store    (align offset) : [i64] -> [   ]]
-  [f32.store    (align offset) : [f32] -> [   ]]
-  [f64.store    (align offset) : [f64] -> [   ]]
-  [i32.store8   (align offset) : [i32] -> [   ]]
-  [i32.store16  (align offset) : [i32] -> [   ]]
-  [i64.store8   (align offset) : [i64] -> [   ]]
-  [i64.store16  (align offset) : [i64] -> [   ]]
-  [i64.store32  (align offset) : [i64] -> [   ]]
+  [i32.load     (arg) : [   ] -> [i32]]
+  [i64.load     (arg) : [   ] -> [i64]]
+  [f32.load     (arg) : [   ] -> [f32]]
+  [f64.load     (arg) : [   ] -> [f64]]
+  [i32.load8_s  (arg) : [   ] -> [i32]]
+  [i32.load8_u  (arg) : [   ] -> [i32]]
+  [i32.load16_s (arg) : [   ] -> [i32]]
+  [i32.load16_u (arg) : [   ] -> [i32]]
+  [i64.load8_s  (arg) : [   ] -> [i64]]
+  [i64.load8_u  (arg) : [   ] -> [i64]]
+  [i64.load16_s (arg) : [   ] -> [i64]]
+  [i64.load16_u (arg) : [   ] -> [i64]]
+  [i64.load32_s (arg) : [   ] -> [i64]]
+  [i64.load32_u (arg) : [   ] -> [i64]]
+  [i32.store    (arg) : [i32] -> [   ]]
+  [i64.store    (arg) : [i64] -> [   ]]
+  [f32.store    (arg) : [f32] -> [   ]]
+  [f64.store    (arg) : [f64] -> [   ]]
+  [i32.store8   (arg) : [i32] -> [   ]]
+  [i32.store16  (arg) : [i32] -> [   ]]
+  [i64.store8   (arg) : [i64] -> [   ]]
+  [i64.store16  (arg) : [i64] -> [   ]]
+  [i64.store32  (arg) : [i64] -> [   ]]
 
   [memory.size (idx) : [   ] -> [i32]]
   [memory.grow (idx) : [i32] -> [i32]]

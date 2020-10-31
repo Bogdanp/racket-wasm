@@ -170,29 +170,29 @@
         [#x24 (instr:global.set (read-u32! in buf))]
 
         ;; Memory instructions
-        [#x28 (read-meminstr! instr:i32.load in buf)]
-        [#x29 (read-meminstr! instr:i64.load in buf)]
-        [#x2A (read-meminstr! instr:f32.load in buf)]
-        [#x2B (read-meminstr! instr:f64.load in buf)]
-        [#x2C (read-meminstr! instr:i32.load8_s in buf)]
-        [#x2D (read-meminstr! instr:i32.load8_u in buf)]
-        [#x2E (read-meminstr! instr:i32.load16_s in buf)]
-        [#x2F (read-meminstr! instr:i32.load16_u in buf)]
-        [#x30 (read-meminstr! instr:i64.load8_s in buf)]
-        [#x31 (read-meminstr! instr:i64.load8_u in buf)]
-        [#x32 (read-meminstr! instr:i64.load16_s in buf)]
-        [#x33 (read-meminstr! instr:i64.load16_u in buf)]
-        [#x34 (read-meminstr! instr:i64.load32_s in buf)]
-        [#x35 (read-meminstr! instr:i64.load32_u in buf)]
-        [#x36 (read-meminstr! instr:i32.store in buf)]
-        [#x37 (read-meminstr! instr:i64.store in buf)]
-        [#x38 (read-meminstr! instr:f32.store in buf)]
-        [#x39 (read-meminstr! instr:f64.store in buf)]
-        [#x3A (read-meminstr! instr:i32.store8 in buf)]
-        [#x3B (read-meminstr! instr:i32.store16 in buf)]
-        [#x3C (read-meminstr! instr:i64.store8 in buf)]
-        [#x3D (read-meminstr! instr:i64.store16 in buf)]
-        [#x3E (read-meminstr! instr:i64.store32 in buf)]
+        [#x28 (instr:i32.load (read-memarg! in buf))]
+        [#x29 (instr:i64.load (read-memarg! in buf))]
+        [#x2A (instr:f32.load (read-memarg! in buf))]
+        [#x2B (instr:f64.load (read-memarg! in buf))]
+        [#x2C (instr:i32.load8_s (read-memarg! in buf))]
+        [#x2D (instr:i32.load8_u (read-memarg! in buf))]
+        [#x2E (instr:i32.load16_s (read-memarg! in buf))]
+        [#x2F (instr:i32.load16_u (read-memarg! in buf))]
+        [#x30 (instr:i64.load8_s (read-memarg! in buf))]
+        [#x31 (instr:i64.load8_u (read-memarg! in buf))]
+        [#x32 (instr:i64.load16_s (read-memarg! in buf))]
+        [#x33 (instr:i64.load16_u (read-memarg! in buf))]
+        [#x34 (instr:i64.load32_s (read-memarg! in buf))]
+        [#x35 (instr:i64.load32_u (read-memarg! in buf))]
+        [#x36 (instr:i32.store (read-memarg! in buf))]
+        [#x37 (instr:i64.store (read-memarg! in buf))]
+        [#x38 (instr:f32.store (read-memarg! in buf))]
+        [#x39 (instr:f64.store (read-memarg! in buf))]
+        [#x3A (instr:i32.store8 (read-memarg! in buf))]
+        [#x3B (instr:i32.store16 (read-memarg! in buf))]
+        [#x3C (instr:i64.store8 (read-memarg! in buf))]
+        [#x3D (instr:i64.store16 (read-memarg! in buf))]
+        [#x3E (instr:i64.store32 (read-memarg! in buf))]
         [#x3F (instr:memory.size (read-u32! in buf))]
         [#x40 (instr:memory.grow (read-u32! in buf))]
 
@@ -370,10 +370,9 @@
     [else
      (typeidx (read-sint! 33 in buf))]))
 
-(define (read-meminstr! f in buf)
-  (f
-   (read-u32! in buf)
-   (read-u32! in buf)))
+(define (read-memarg! in buf)
+  (memarg (read-u32! in buf)
+          (read-u32! in buf)))
 
 (define (read-data! in buf)
   (define idx (read-u32! in buf))
