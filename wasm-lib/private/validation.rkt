@@ -1,230 +1,214 @@
 #lang racket/base
 
-(require racket/contract
+(require (for-syntax racket/base)
+         racket/contract
+         racket/function
          racket/list
          racket/match
          racket/port
+         racket/string
          racket/vector
+         syntax/parse/define
          "core.rkt")
 
 (provide
- (struct-out validation-error)
- mod-validation-errors)
+ mod-valid?)
 
-(struct validation-error (where description)
-  #:transparent)
+(define/contract (mod-valid? m)
+  (-> mod? (values boolean? (or/c #f string?)))
+  (define validators
+    (list validate-tables!
+          validate-memories!
+          validate-functions!))
+  (with-handlers ([exn:fail:validation?
+                   (lambda (e)
+                     (define message
+                       (string-trim
+                        (with-output-to-string
+                          (lambda ()
+                            (displayln (exn-message e))
+                            (define whos
+                              (match (exn:fail:validation-who e)
+                                [(list whos ...) whos]
+                                [who (list who)]))
+                            (printf "  at: ~v~n" (car whos))
+                            (for ([who (in-list (cdr whos))])
+                              (printf "  within: ~v~n" who))))))
+                     (values #f message))])
+    (for ([validate (in-list validators)])
+      (validate m))
+    (values #t #f)))
 
-(define (err where description . args)
-  (validation-error where (apply format description args)))
-
-(define/contract (mod-validation-errors m)
-  (-> mod? (listof validation-error?))
-  (for/fold ([errors null])
-            ([validate (in-list (list table-errors
-                                      memory-errors
-                                      function-errors))])
-    (append errors (validate m))))
-
-(define (limit-errors where l k)
+(define (validate-limit! who l k)
   (match l
-    [(limits lo #f) #:when (> lo k)  (list (err where "min exceeds ~a" k))]
-    [(limits _  hi) #:when (> hi k)  (list (err where "max exceeds ~a" k))]
-    [(limits lo hi) #:when (> lo hi) (list (err where "min greater than max"))]
-    [_ null]))
+    [(limits lo #f) #:when (> lo k)  (raise-validation-error who "min exceeds ~a" k)]
+    [(limits _  hi) #:when (> hi k)  (raise-validation-error who "max exceeds ~a" k)]
+    [(limits lo hi) #:when (> lo hi) (raise-validation-error who "min greater than max")]
+    [_ (void)]))
 
-(define (table-errors m)
+(define (validate-tables! m)
   (define k (expt 2 32))
-  (for/fold ([errors null])
-            ([(t idx) (in-indexed (or (mod-tables m) null))])
-    (append errors (limit-errors (tableidx idx) t k))))
+  (for ([(t idx) (in-indexed (mod-tables m))])
+    (validate-limit! (tableidx idx) t k)))
 
-(define (memory-errors m)
+(define (validate-memories! m)
   (define k (expt 2 16))
-  (for/fold ([errors null])
-            ([(m idx) (in-indexed (or (mod-memories m) null))])
-    (append errors (limit-errors (memidx idx) m k))))
+  (for ([(m idx) (in-indexed (mod-memories m))])
+    (validate-limit! (memidx idx) m k)))
 
-(define (function-errors m)
-  (define types (mod-types m))
-  (define codes (mod-codes m))
-  (define globals (mod-globals m))
-  (let/ec return
-    (define types/max (sub1 (vector-length types)))
-    (define (type-ref who idx)
-      (when (> idx types/max)
-        (return (list (err who "type index out of bounds ~a (max: ~a)" idx types/max))))
-      (vector-ref types idx))
-    (define codes/max (sub1 (vector-length codes)))
-    (define (code-ref who idx)
-      (when (> idx codes/max)
-        (return (list (err who "missing code at index ~a (max: ~a)" idx codes/max))))
-      (vector-ref codes idx))
-    (for*/fold ([errors null])
-               ([(typeidx idx) (in-indexed (or (mod-functions m) null))]
-                [here (in-value (funcidx idx))]
-                [t (in-value (type-ref here typeidx))]
-                [c (in-value (code-ref here idx))])
-      (define locals
-        (apply
-         vector-append
-         (list->vector (functype-params t))
-         (for/list ([l (in-vector (code-locals c))])
-           (make-vector (locals-n l) (locals-valtype l)))))
-      (append errors (type-errors here types globals locals t (code-instrs c))))))
+(define (validate-functions! m)
+  (define-vector-refs m
+    [type-ref mod-types]
+    [code-ref mod-codes]
+    [global-ref mod-globals])
+  (for* ([(ftypeidx idx) (in-indexed (or (mod-functions m) null))]
+         [here (in-value (list (funcidx idx)))]
+         [type (in-value (type-ref here ftypeidx))]
+         [code (in-value (code-ref here idx))])
+    (define locals (make-locals type code))
+    (define-vector-ref local-ref m (const locals))
+    (let validate-code! ([where here]
+                         [type type]
+                         [instrs (code-instrs code)]
+                         [labels (list type)])
+      (define-list-ref label-ref m (const labels))
 
-(define (type-errors where types globals locals type instrs [labels (list type)])
-  (let/ec return
-    (define locals/max (sub1 (vector-length locals)))
-    (define (local-ref who idx)
-      (when (> idx locals/max)
-        (return (list (err who "local index out of bounds"))))
-      (vector-ref locals idx))
+      (define (validate-block! who ftype block-instrs)
+        (validate-code! who ftype block-instrs (cons ftype labels)))
 
-    (define globals/max (sub1 (vector-length globals)))
-    (define (global-ref who idx)
-      (when (> idx globals/max)
-        (return (list (err who "global index out of bounds"))))
-      (vector-ref globals idx))
+      (define stack null)
 
-    (define labels/max (sub1 (length labels)))
-    (define (label-ref who lbl)
-      (when (> lbl labels/max)
-        (return (list (err who "invalid label (max: ~a)" labels/max))))
-      (list-ref labels lbl))
+      (define (push! . vts)
+        (set! stack (append vts stack)))
 
-    (define types/max (sub1 (vector-length types)))
-    (define (type-ref who idx)
-      (when (> idx types/max)
-        (return (list (err who "type index out of bounds ~a (max: ~a)" idx types/max))))
-      (vector-ref types idx))
+      (define (pop! who . vts)
+        (define-values (ets remaining-stack)
+          (split-at stack (min (length vts)
+                               (length stack))))
+        (typecheck! who vts ets)
+        (begin0 ets
+          (set! stack remaining-stack)))
 
-    (define (block-errors who ftype block-instrs)
-      (type-errors who types globals locals ftype block-instrs (cons ftype labels)))
+      ;; [t*    ] -> [   ]
+      ;; [t* a  ] -> [a  ]
+      ;; [t* a b] -> [a b]
+      (define (keep! who . vts)
+        (set! stack (apply pop! who vts)))
 
-    (define stack null)
+      (define (check! who instr)
+        (match instr
+          ;; Control Instructions
+          ;; [t1*] [t2*]
+          [(instr:unreachable)
+           (set! stack (functype-results type))]
 
-    (define (push! . vts)
-      (set! stack (append vts stack)))
+          ;; [t1* t*] -> [t2*]
+          [(instr:br lbl)
+           (define ft (label-ref instr lbl))
+           (apply keep! who (functype-results ft))]
 
-    (define (pop! who . vts)
-      (define-values (ets remaining-stack)
-        (split-at stack (min (length vts)
-                             (length stack))))
-      (define errors (typecheck who vts ets))
-      (unless (null? errors)
-        (return errors))
-      (begin0 ets
-        (set! stack remaining-stack)))
+          ;; [t* i32] -> [t*]
+          [(instr:br_if lbl)
+           (pop! who i32)
+           (define ft (label-ref who lbl))
+           (typecheck! who (functype-results ft) stack)]
 
-    ;; [t*    ] -> [   ]
-    ;; [t* a  ] -> [a  ]
-    ;; [t* a b] -> [a b]
-    (define (keep! who . vts)
-      (set! stack (apply pop! who vts)))
+          ;; [t1* t* i32] -> [t2*]
+          [(instr:br_table tbl lN)
+           (pop! who i32)
+           (define ft (label-ref who lN))
+           (for ([l (in-vector tbl)])
+             (typecheck! who
+                         (functype-results ft)
+                         (functype-results (label-ref who l))))
+           (apply keep! who (functype-results ft))]
 
-    (define (check! instr)
-      (match instr
-        ;; Control Instructions
-        ;; [t1*] [t2*]
-        [(instr:unreachable)
-         (set! stack (functype-results type))]
+          ;; [t1* t*] -> [t2*]
+          [(instr:return)
+           (apply keep! who (functype-results type))]
 
-        ;; [t1* t*] -> [t2*]
-        [(instr:br lbl)
-         (define ft (label-ref instr lbl))
-         (apply keep! instr (functype-results ft))]
+          [(instr:block (typeidx idx) block-code)
+           (define ft (type-ref who idx))
+           (check! who (instr:block ft block-code))]
 
-        ;; [t* i32] -> [t*]
-        [(instr:br_if lbl)
-         (pop! instr i32)
-         (define ft (label-ref instr lbl))
-         (define errors
-           (typecheck instr (functype-results ft) stack))
-         (unless (null? errors)
-           (return errors))]
+          [(instr:block ft block-code)
+           (when block-code
+             (validate-block! who ft block-code))
+           (apply push! (functype-results ft))]
 
-        ;; [t1* t*] -> [t2*]
-        [(instr:return)
-         (apply keep! instr (functype-results type))]
+          [(instr:if (typeidx idx) then-code else-code)
+           (define ft (type-ref who idx))
+           (check! who (instr:if ft then-code else-code))]
 
-        [(instr:block (typeidx idx) block-code)
-         (define ft (type-ref instr idx))
-         (check! (instr:block ft block-code))]
+          [(instr:if ft then-code else-code)
+           (pop! who i32)
+           (when then-code
+             (validate-block! who ft then-code))
+           (when else-code
+             (validate-block! who ft else-code))
+           (apply push! (functype-results ft))]
 
-        [(instr:block ft block-code)
-         (when block-code
-           (define errors (block-errors instr ft block-code))
-           (unless (null? errors)
-             (return errors)))
-         (apply push! (functype-results ft))]
+          ;; Variable Instructions
+          [(instr:local.get idx)
+           (push! (local-ref who idx))]
 
-        [(instr:if (typeidx idx) then-code else-code)
-         (define ft (type-ref instr idx))
-         (check! (instr:if ft then-code else-code))]
+          [(instr:local.set idx)
+           (pop! who (local-ref who idx))]
 
-        [(instr:if ft then-code else-code)
-         (pop! instr i32)
-         (when then-code
-           (define then-errors (block-errors instr ft then-code))
-           (unless (null? then-errors)
-             (return then-errors)))
-         (when else-code
-           (define else-errors (block-errors instr ft else-code))
-           (unless (null? else-errors)
-             (return else-errors)))
-         (apply push! (functype-results ft))]
+          [(instr:local.tee idx)
+           (define vt (local-ref who idx))
+           (pop! who vt)
+           (push! vt)]
 
-        ;; Variable Instructions
-        [(instr:local.get idx)
-         (push! (local-ref instr idx))]
+          [(instr:global.get idx)
+           (define g (global-ref who idx))
+           (define gt (global-type g))
+           (push! (globaltype-valtype gt))]
 
-        [(instr:local.set idx)
-         (pop! instr (local-ref instr idx))]
+          [(instr:global.set idx)
+           (define g (global-ref who idx))
+           (define gt (global-type g))
+           (unless (globaltype-mutable? gt)
+             (raise-validation-error who "cannot mutate constant"))
+           (pop! who (globaltype-valtype gt))]
 
-        [(instr:local.tee idx)
-         (define vt (local-ref instr idx))
-         (pop! instr vt)
-         (push! vt)]
+          ;; Memory Instructions
+          ;; ...
 
-        [(instr:global.get idx)
-         (define g (global-ref instr idx))
-         (define gt (global-type g))
-         (push! (globaltype-valtype gt))]
+          ;; Everything Else
+          [_
+           (define it (instruction-type instr))
+           (apply pop! who (functype-params it))
+           (apply push! (functype-results it))]))
 
-        [(instr:global.set idx)
-         (define g (global-ref instr idx))
-         (define gt (global-type g))
-         (unless (globaltype-mutable? gt)
-           (return (list (err instr "cannot set immutable global ~a" idx))))
-         (pop! instr (globaltype-valtype gt))]
+      (for ([(instr idx) (in-indexed instrs)])
+        (check! (list* instr where) instr))
 
-        ;; Memory Instructions
-        ;; ...
+      (typecheck! where (functype-results type) stack "result "))))
 
-        ;; Everything Else
-        [_
-         (define it (instruction-type instr))
-         (apply pop! instr (functype-params it))
-         (apply push! (functype-results it))]))
+(define (make-locals t c)
+  (apply
+   vector-append
+   (list->vector (functype-params t))
+   (for/list ([l (in-vector (code-locals c))])
+     (make-vector (locals-n l) (locals-valtype l)))))
 
-    (for ([instr (in-vector instrs)])
-      (check! instr))
-
-    (typecheck where (functype-results type) stack)))
-
-(define (typecheck who expected found)
+(define (typecheck! who expected found [context ""])
   (cond
     [(= (length expected) (length found))
-     (for/list ([et (in-list expected)]
-                [ft (in-list found)]
-                #:unless (type-unify et ft))
-       (err who "type error~n  expected: ~v~n  found: ~v" et ft))]
+     (for ([(et idx) (in-indexed expected)]
+           [ft (in-list found)]
+           #:unless (type-unify et ft))
+       (raise-validation-error who
+                               "~atype error~n  expected: ~v~n  found: ~v~n  at index: ~a~n  in: [~a]"
+                               context et ft idx (pp-ts found)))]
 
     [else
-     (list (err who
-                "arity error~n  expected: [~a]~n  found: [~a]"
-                (pp-ts expected)
-                (pp-ts found)))]))
+     (raise-validation-error who
+                             "~aarity error~n  expected: [~a]~n  found: [~a]"
+                             context
+                             (pp-ts expected)
+                             (pp-ts found))]))
 
 (define (pp-ts ts)
   (call-with-output-string
@@ -233,3 +217,46 @@
        (print t out)
        (unless (= idx (sub1 (length ts)))
          (display " " out))))))
+
+
+;; validation error ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(struct exn:fail:validation exn:fail (who)
+  #:transparent)
+
+(define (raise-validation-error who message . args)
+  (raise (exn:fail:validation
+          (apply format message args)
+          (current-continuation-marks)
+          who)))
+
+
+;; accessors ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define (make-ref m accessor len-fn ref-fn)
+  (define xs (accessor m))
+  (define max-idx (sub1 (len-fn xs)))
+  (lambda (who idx)
+    (when (> idx max-idx)
+      (raise-validation-error who "index out of bounds (max: ~a)" max-idx))
+    (ref-fn xs idx)))
+
+(define-syntax-parser define-ref
+  [(_ name:id m:expr accessor:expr len-fn:expr ref-fn:expr)
+   #'(define name (make-ref m accessor len-fn ref-fn))])
+
+(define-syntax-parser define-list-ref
+  [(_ name:id m:expr accessor:expr)
+   #'(define-ref name m accessor length list-ref)])
+
+(define-syntax-parser define-vector-ref
+  [(_ name:id m:expr accessor:expr)
+   #'(define-ref name m accessor vector-length vector-ref)])
+
+(define-syntax-parser define-list-refs
+  [(_ m:expr [name:id accessor:expr] ...+)
+   #'(begin (define-list-ref name m accessor) ...)])
+
+(define-syntax-parser define-vector-refs
+  [(_ m:expr [name:id accessor:expr] ...+)
+   #'(begin (define-vector-ref name m accessor) ...)])
