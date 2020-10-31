@@ -3,7 +3,7 @@ name: CI/CD
 jobs:
   build:
     name: "Build on ${{ matrix.version }} (${{ matrix.variant }})"
-    runs-on: ${{ matrix.os }}
+    runs-on: ubuntu-latest
 
     strategy:
       fail-fast: false
