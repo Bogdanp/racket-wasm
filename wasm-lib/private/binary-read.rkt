@@ -37,13 +37,13 @@
   (define version (subbytes buf 0 4))
   (unless (bytes=? version VERSION)
     (oops! in "unsupported version: ~a" version))
-  (define m (make-empty-mod))
-  (begin0 m
-    (let loop ()
-      (define s (read-section! in buf))
-      (unless (eof-object? s)
-        (mod-add-section! m s)
-        (loop)))))
+  (let loop ([sections (make-mod-hash)])
+    (match (read-section! in buf)
+      [(? eof-object?) (mod-hash->mod sections)]
+      [section (loop (with-handlers ([exn:fail?
+                                      (lambda (e)
+                                        (oops! in "~a" (exn-message e)))])
+                       (mod-hash-add-section sections section)))])))
 
 (define (read-section! in buf)
   (match (read-byte in)

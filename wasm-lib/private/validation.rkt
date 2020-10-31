@@ -45,9 +45,9 @@
     (append errors (limit-errors (memidx idx) m k))))
 
 (define (function-errors m)
-  (define types (or (mod-types m) (vector)))
-  (define codes (or (mod-codes m) (vector)))
-  (define globals (or (mod-globals m) (vector)))
+  (define types (mod-types m))
+  (define codes (mod-codes m))
+  (define globals (mod-globals m))
   (let/ec return
     (define types/max (sub1 (vector-length types)))
     (define (type-ref who idx)

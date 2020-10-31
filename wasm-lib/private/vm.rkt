@@ -25,7 +25,7 @@
     (match (mod-memories m)
       [(vector (memtype (limits lo _)))
        (make-memory-pages lo)]
-      [#f
+      [(vector)
        (vector)]))
   (vm m links pages))
 

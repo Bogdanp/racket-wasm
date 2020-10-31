@@ -2,6 +2,7 @@
 
 (require (for-syntax racket/base
                      racket/syntax)
+         racket/function
          racket/generic
          racket/match
          syntax/parse/define
@@ -378,42 +379,59 @@
 
 (provide
  (struct-out mod)
- make-empty-mod
- mod-add-section!)
+ make-mod-hash
+ mod-hash-add-section
+ mod-hash->mod)
 
-(struct mod (customs types imports functions tables memories globals exports start elements codes datas)
-  #:transparent
-  #:mutable)
+(define (hash-add-section-help h k v multi?)
+  (cond
+    [multi?
+     (hash-update h k (curry cons v) null)]
+    [else
+     (when (hash-has-key? h k)
+       (raise-arguments-error 'mod-hash-add-section
+                              "duplicate section"
+                              "name" (symbol->string k)))
+     (hash-set h k v)]))
 
-(define-syntax-rule (define-mod-section-adder id (section-type accessor setter) ...)
-  (define (id m s)
-    (match s
-      [(section-type v)
-       (define existing (accessor m))
-       (when existing
-         (raise-wasm-read-error "duplicate section~n  at: ~.s~n  existing: ~.s" s existing))
-       (setter m v)] ...)))
+(begin-for-syntax
+  (define-syntax-class mod-section
+    (pattern name:id
+             #:with default #'(vector))
+    (pattern (name:id default:expr))))
 
-(define (make-empty-mod)
-  (mod null #f #f #f #f #f #f #f #f #f #f #f))
+(define-syntax-parser define-mod-struct
+  [(_ name:id
+      [section:mod-section
+       (~optional (~and #:multi multi))
+       section-type?:expr
+       section-accessor:expr] ...+)
+   #:with (multi? ...) (for/list ([stx (in-list (syntax-e #'((~? multi #f) ...)))])
+                         (if (syntax->datum stx) #'#t #'#f))
+   #:with make-hash-name (format-id #'name "make-~a-hash" #'name)
+   #:with hash-add-section-name (format-id #'name "~a-hash-add-section" #'name)
+   #:with hash->name (format-id #'name "~a-hash->~a" #'name #'name)
+   #'(begin
+       (define (make-hash-name) (hasheq))
+       (define (hash-add-section-name h v)
+         (cond
+           [(section-type? v) (hash-add-section-help h 'section.name (section-accessor v) multi?)] ...
+           [else (raise-argument-error 'hash-add-section-name "section?" v)]))
+       (define (hash->name h)
+         (name (hash-ref h 'section.name section.default) ...))
+       (struct name (section.name ...)
+         #:transparent))])
 
-(define-mod-section-adder mod-add-section-once!
-  [type-section mod-types set-mod-types!]
-  [import-section mod-imports set-mod-imports!]
-  [function-section mod-functions set-mod-functions!]
-  [table-section mod-tables set-mod-tables!]
-  [memory-section mod-memories set-mod-memories!]
-  [global-section mod-globals set-mod-globals!]
-  [export-section mod-exports set-mod-exports!]
-  [start-section mod-start set-mod-start!]
-  [element-section mod-elements set-mod-elements!]
-  [code-section mod-codes set-mod-codes!]
-  [data-section mod-datas set-mod-datas!])
-
-(define (mod-add-section! m s)
-  (match s
-    [(custom-section data)
-     (set-mod-customs! m (cons data (mod-customs m)))]
-
-    [_
-     (mod-add-section-once! m s)]))
+(define-mod-struct mod
+  [(customs null) #:multi custom-section? custom-section-data]
+  [types type-section? type-section-functypes]
+  [imports import-section? import-section-imports]
+  [functions function-section? function-section-typeidxs]
+  [tables table-section? table-section-tables]
+  [memories memory-section? memory-section-memories]
+  [globals global-section? global-section-globals]
+  [exports export-section? export-section-exports]
+  [(start #f) start-section? start-section-funcidx]
+  [elements element-section? element-section-elements]
+  [codes code-section? code-section-codes]
+  [datas data-section? data-section-datas])
