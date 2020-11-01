@@ -23,6 +23,7 @@
         (validate-imports (mod-imports m))
         (validate-tables)
         (validate-memories)
+        (validate-globals)
         (validate-start (mod-start m))
         (validate-functions (mod-functions m) (mod-codes m))
         (validate-exports (mod-exports m)))
@@ -90,6 +91,20 @@
   (begin0 c
     (for ([(m idx) (in-indexed (ctx-memories c))])
       (validate-limits (memidx idx) m max-memsize))))
+
+(define (validate-globals c)
+  (begin0 c
+    (for ([g (in-vector (ctx-globals c))])
+      (match-define (global (globaltype vt _) instrs) g)
+      (define global-c (struct-copy ctx c [return (list vt)]))
+      (define stack
+        (for/fold ([stack null])
+                  ([instr (in-vector instrs)])
+          (define who (list instr g))
+          (unless (instr-constant? global-c instr)
+            (raise-validation-error who "global instructions must be constant"))
+          (validate-instr global-c who stack instr)))
+      (check-types g (list vt) stack "result "))))
 
 (define (validate-start c s)
   (define who "start function")
@@ -345,6 +360,16 @@
    (list->vector (functype-params t))
    (for/list ([l (in-vector (code-locals c))])
      (make-vector (locals-n l) (locals-valtype l)))))
+
+(define (instr-constant? c i)
+  (match i
+    [(instr:global.get idx)
+     (not (globaltype-mutable? (global-ref c i idx)))]
+    [(instr:i32.const _) #t]
+    [(instr:f32.const _) #t]
+    [(instr:i64.const _) #t]
+    [(instr:f64.const _) #t]
+    [_ #f]))
 
 
 ;; validation error ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

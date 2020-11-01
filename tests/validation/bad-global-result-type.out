@@ -1,0 +1,1 @@
+(#f . "result arity error\n  expected: [i32]\n  found: [i32 i32]\n  at: (global (globaltype i32 #f) (vector (instr:i32.const 1) (instr:i32.const 2)))")
