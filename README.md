@@ -8,7 +8,7 @@ WIP [Wasm] tooling in Racket.
 * [ ] Implement binary format writer.
 * [ ] Implement text format reader.
 * [ ] Implement text format writer.
-* [ ] Implement validation.
+* [x] Implement validation.
 * [ ] Implement VM.
 * [ ] Implement Wasm->Racket compiler.
 
