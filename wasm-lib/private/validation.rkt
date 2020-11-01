@@ -5,6 +5,7 @@
          racket/contract
          racket/list
          racket/match
+         (submod racket/performance-hint begin-encourage-inline)
          racket/port
          racket/vector
          threading
@@ -123,34 +124,6 @@
   (check-types who (ctx-return c) stack "result "))
 
 (define (validate-instr c who stack instr)
-  (define (push s . vts)
-    (append vts s))
-
-  (define (pop* s . vts)
-    (define-values (ets remaining-stack)
-      (split-at s (min (length vts)
-                       (length s))))
-    (begin0 (values ets remaining-stack)
-      (check-types who vts ets)))
-
-  (define (pop s . vts)
-    (define-values (_ remaining-stack)
-      (apply pop* s vts))
-    remaining-stack)
-
-  ;; [t*    ] -> [   ]
-  ;; [t* a  ] -> [a  ]
-  ;; [t* a b] -> [a b]
-  (define (keep s . vts)
-    (define-values (ets _)
-      (apply pop* s vts))
-    ets)
-
-  (define (validate-type [s stack] [ft (instruction-type instr)])
-    (define remaining-stack
-      (apply pop s (functype-params ft)))
-    (append (functype-results ft) remaining-stack))
-
   (match instr
     ;; Control Instructions
     ;; [t1*] [t2*]
@@ -160,12 +133,12 @@
     ;; [t1* t*] -> [t2*]
     [(instr:br lbl)
      (define ft (label-ref c who lbl))
-     (apply keep stack (functype-results ft))]
+     (apply keep who stack (functype-results ft))]
 
     ;; [t* i32] -> [t*]
     [(instr:br_if lbl)
      (define ft (label-ref c who lbl))
-     (define s (pop stack i32))
+     (define s (pop who stack i32))
      (begin0 s
        (check-types who (functype-results ft) s))]
 
@@ -176,11 +149,11 @@
        (check-types who
                     (functype-results ft)
                     (functype-results (label-ref c who l))))
-     (apply keep (pop stack i32) (functype-results ft))]
+     (apply keep who (pop who stack i32) (functype-results ft))]
 
     ;; [t1* t*] -> [t2*]
     [(instr:return)
-     (apply keep stack (ctx-return c))]
+     (apply keep who stack (ctx-return c))]
 
     ;; [t1*] -> [t2*]
     [(instr:block (typeidx idx) block-code)
@@ -206,20 +179,20 @@
 
     ;; [t1* i32] -> [t2*]
     [(instr:if ft then-code else-code)
-     (define s (pop stack i32))
+     (define s (pop who stack i32))
      (when then-code (validate-block c who ft then-code))
      (when else-code (validate-block c who ft else-code))
      (apply push s (functype-results ft))]
 
     ;; [t1*] -> [t2*]
     [(instr:call idx)
-     (validate-type stack (func-ref c who idx))]
+     (validate-type who stack (func-ref c who idx))]
 
     ;; [t1* i32] -> [t2*]
     [(instr:call_indirect idx tblidx)
      (match (table-ref c who tblidx)
        [(tabletype (? funcref?) _)
-        (validate-type (pop stack i32) (type-ref c who idx))]
+        (validate-type who (pop who stack i32) (type-ref c who idx))]
 
        [_
         (raise-validation-error who "table elemtype is not funcref")])]
@@ -229,11 +202,11 @@
      (push stack (local-ref c who idx))]
 
     [(instr:local.set idx)
-     (pop stack (local-ref c who idx))]
+     (pop who stack (local-ref c who idx))]
 
     [(instr:local.tee idx)
      (define vt (local-ref c who idx))
-     (push (pop stack vt) vt)]
+     (push (pop who stack vt) vt)]
 
     [(instr:global.get idx)
      (define g (global-ref c who idx))
@@ -245,7 +218,7 @@
      (define gt (global-type g))
      (unless (globaltype-mutable? gt)
        (raise-validation-error who "cannot mutate constant"))
-     (pop stack (globaltype-valtype gt))]
+     (pop who stack (globaltype-valtype gt))]
 
     ;; Memory Instructions
     [(or (instr:i32.load8_s arg)
@@ -256,7 +229,7 @@
          (instr:i64.store8 arg))
      (memory-ref c who 0)
      (check-alignment who arg 8)
-     (validate-type)]
+     (validate-type who stack (instruction-type instr))]
 
     [(or (instr:i32.load16_s arg)
          (instr:i32.load16_u arg)
@@ -266,7 +239,7 @@
          (instr:i64.store16 arg))
      (memory-ref c who 0)
      (check-alignment who arg 16)
-     (validate-type)]
+     (validate-type who stack (instruction-type instr))]
 
     [(or (instr:i32.load arg)
          (instr:f32.load arg)
@@ -277,7 +250,7 @@
          (instr:i64.store32 arg))
      (memory-ref c who 0)
      (check-alignment who arg 32)
-     (validate-type)]
+     (validate-type who stack (instruction-type instr))]
 
     [(or (instr:i64.load arg)
          (instr:f64.load arg)
@@ -285,48 +258,68 @@
          (instr:f64.store arg))
      (memory-ref c who 0)
      (check-alignment who arg 64)
-     (validate-type)]
+     (validate-type who stack (instruction-type instr))]
 
     [(instr:memory.size idx)
      (memory-ref c who idx)
-     (validate-type)]
+     (validate-type who stack (instruction-type instr))]
 
     [(instr:memory.grow idx)
      (memory-ref c who idx)
-     (validate-type)]
+     (validate-type who stack (instruction-type instr))]
 
     ;; Everything Else
     [_
-     (validate-type)]))
+     (validate-type who stack (instruction-type instr))]))
 
-(define (make-locals t c)
-  (apply
-   vector-append
-   (list->vector (functype-params t))
-   (for/list ([l (in-vector (code-locals c))])
-     (make-vector (locals-n l) (locals-valtype l)))))
+(begin-encourage-inline
+  (define (push s . vts)
+    (append vts s))
 
-(define (check-alignment who arg bits)
-  (define align (memarg-align arg))
-  (unless (<= (expt 2 align) (quotient bits 8))
-    (raise-validation-error who "invalid alignment ~v" align)))
+  (define (pop* who s . vts)
+    (define-values (ets remaining-stack)
+      (split-at s (min (length vts)
+                       (length s))))
+    (begin0 (values ets remaining-stack)
+      (check-types who vts ets)))
+
+  (define (pop who s . vts)
+    (define-values (_ remaining-stack)
+      (apply pop* who s vts))
+    remaining-stack)
+
+  ;; [t*    ] -> [   ]
+  ;; [t* a  ] -> [a  ]
+  ;; [t* a b] -> [a b]
+  (define (keep who s . vts)
+    (define-values (ets _)
+      (apply pop* who s vts))
+    ets)
+
+  (define (validate-type who s ft)
+    (define remaining-stack
+      (apply pop who s (functype-params ft)))
+    (append (functype-results ft) remaining-stack))
+
+  (define (check-alignment who arg bits)
+    (define align (memarg-align arg))
+    (unless (<= (expt 2 align) (quotient bits 8))
+      (raise-validation-error who "invalid alignment ~v" align))))
 
 (define (check-types who expected found [context ""])
-  (cond
-    [(= (length expected) (length found))
-     (for ([(et idx) (in-indexed expected)]
-           [ft (in-list found)]
-           #:unless (type-unify et ft))
-       (raise-validation-error who
-                               "~atype error~n  expected: ~v~n  found: ~v~n  at index: ~a~n  in: [~a]"
-                               context et ft idx (pp-ts found)))]
+  (unless (= (length expected) (length found))
+    (raise-validation-error who
+                            "~aarity error~n  expected: [~a]~n  found: [~a]"
+                            context
+                            (pp-ts expected)
+                            (pp-ts found)))
 
-    [else
-     (raise-validation-error who
-                             "~aarity error~n  expected: [~a]~n  found: [~a]"
-                             context
-                             (pp-ts expected)
-                             (pp-ts found))]))
+  (for ([(et idx) (in-indexed expected)]
+        [ft (in-list found)]
+        #:unless (type-unify et ft))
+    (raise-validation-error who
+                            "~atype error~n  expected: ~v~n  found: ~v~n  at index: ~a~n  in: [~a]"
+                            context et ft idx (pp-ts found))))
 
 (define (pp-ts ts)
   (call-with-output-string
@@ -335,6 +328,13 @@
        (print t out)
        (unless (= idx (sub1 (length ts)))
          (display " " out))))))
+
+(define (make-locals t c)
+  (apply
+   vector-append
+   (list->vector (functype-params t))
+   (for/list ([l (in-vector (code-locals c))])
+     (make-vector (locals-n l) (locals-valtype l)))))
 
 
 ;; validation error ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
