@@ -33,5 +33,6 @@
          (lambda ()
            (write (cons valid? validation-error))))])))
 
-(for ([path (find-files wasm-path? here)])
-  (check-file path))
+(time
+ (for ([path (find-files wasm-path? here)])
+   (check-file path)))
