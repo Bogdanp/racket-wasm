@@ -24,7 +24,8 @@
         (validate-tables)
         (validate-memories)
         (validate-start (mod-start m))
-        (validate-functions (mod-functions m) (mod-codes m)))
+        (validate-functions (mod-functions m) (mod-codes m))
+        (validate-exports (mod-exports m)))
     (values #t #f)))
 
 (define (format-error e)
@@ -60,6 +61,15 @@
       [(import _ _ (? tabletype?  tt)) (values functions (cons tt tables) memories globals)]
       [(import _ _ (? memtype?    mt)) (values functions tables (cons mt memories) globals)]
       [(import _ _ (? globaltype? gt)) (values functions tables memories (cons gt globals))])))
+
+(define (validate-exports c exports)
+  (begin0 c
+    (for ([e (in-vector exports)])
+      (match e
+        [(export _ (funcidx   idx)) (func-ref c e idx)]
+        [(export _ (tableidx  idx)) (table-ref c e idx)]
+        [(export _ (memidx    idx)) (memory-ref c e idx)]
+        [(export _ (globalidx idx)) (global-ref c e idx)]))))
 
 (define max-memsize (expt 2 16))
 (define max-tblsize (expt 2 32))
@@ -375,7 +385,9 @@
   (define xs (accessor ob))
   (define max-idx (sub1 (len-fn xs)))
   (when (> idx max-idx)
-    (raise-validation-error who "index out of bounds (max: ~a)" max-idx))
+    (if (> max-idx 0)
+        (raise-validation-error who "index out of bounds (max: ~a)" max-idx)
+        (raise-validation-error who "index out of bounds (no items)")))
   (ref-fn xs idx))
 
 (define-syntax-rule (define-ref name accessor len-fn ref-fn)
