@@ -24,6 +24,7 @@
         (validate-tables)
         (validate-memories)
         (validate-globals)
+        (validate-elements (mod-elements m))
         (validate-datas (mod-datas m))
         (validate-start (mod-start m))
         (validate-functions (mod-functions m) (mod-codes m))
@@ -105,14 +106,30 @@
         [(global _ _)
          (raise-validation-error g "global definitions require exactly one instruction")]))))
 
+(define (validate-elements c elements)
+  (begin0 c
+    (for ([e (in-vector elements)])
+      (match e
+        [(element idx (vector instr) funcs)
+         (table-ref c e idx)
+         (unless (instr-constant? c instr)
+           (raise-validation-error e "element definition instructions must be constant"))
+         (check-types e (list i32) (functype-results (instruction-type instr)) "result ")
+         (for ([f (in-vector funcs)])
+           (func-ref c e (funcidx-idx f)))]
+
+        [(element _ _ _)
+         (raise-validation-error e "element definitions require exactly one instruction")]))))
+
 (define (validate-datas c datas)
   (begin0 c
     (for ([d (in-vector datas)])
       (match d
         [(data idx (vector instr) _)
+         (memory-ref c d idx)
          (unless (instr-constant? c instr)
            (raise-validation-error d "data definition instructions must be constant"))
-         (memory-ref c d idx)]
+         (check-types d (list i32) (functype-results (instruction-type instr)) "result ")]
 
         [(data _ _ _)
          (raise-validation-error d "data definitions require exactly one instruction")]))))
