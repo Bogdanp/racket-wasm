@@ -1,1 +1,1 @@
-(#f . "index out of bounds (no items)\n  at: (export \"f\" (funcidx 0))")
+(#f . "function index out of bounds (no items)\n  at: (export \"f\" (funcidx 0))")

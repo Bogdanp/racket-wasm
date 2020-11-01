@@ -434,27 +434,27 @@
 
 ;; accessors ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define ((make-ref accessor len-fn ref-fn) ob who idx)
+(define ((make-ref what accessor len-fn ref-fn) ob who idx)
   (define xs (accessor ob))
   (define max-idx (sub1 (len-fn xs)))
   (when (> idx max-idx)
     (if (> max-idx 0)
-        (raise-validation-error who "index out of bounds (max: ~a)" max-idx)
-        (raise-validation-error who "index out of bounds (no items)")))
+        (raise-validation-error who "~a index out of bounds (max: ~a)" what max-idx)
+        (raise-validation-error who "~a index out of bounds (no items)" what)))
   (ref-fn xs idx))
 
-(define-syntax-rule (define-ref name accessor len-fn ref-fn)
-  (define name (make-ref accessor len-fn ref-fn)))
+(define-syntax-rule (define-ref name what accessor len-fn ref-fn)
+  (define name (make-ref what accessor len-fn ref-fn)))
 
-(define-syntax-rule (define-vector-refs [name accessor] ...)
-  (begin (define-ref name accessor vector-length vector-ref) ...))
+(define-syntax-rule (define-vector-refs [name what accessor] ...)
+  (begin (define-ref name what accessor vector-length vector-ref) ...))
 
 (define-vector-refs
-  [type-ref ctx-types]
-  [func-ref ctx-functions]
-  [table-ref ctx-tables]
-  [memory-ref ctx-memories]
-  [global-ref ctx-globals]
-  [local-ref ctx-locals])
+  [type-ref "type" ctx-types]
+  [func-ref "function" ctx-functions]
+  [table-ref "table" ctx-tables]
+  [memory-ref "memory" ctx-memories]
+  [global-ref "global" ctx-globals]
+  [local-ref "local" ctx-locals])
 
-(define-ref label-ref ctx-labels ra:length ra:list-ref)
+(define-ref label-ref "label" ctx-labels ra:length ra:list-ref)
