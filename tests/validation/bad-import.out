@@ -1,0 +1,1 @@
+(#f . "arity error\n  expected: [i32]\n  found: []\n  at: (instr:call 0)\n  within: (funcidx 0)")

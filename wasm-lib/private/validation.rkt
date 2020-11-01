@@ -75,7 +75,7 @@
   (match (mod-start m)
     [#f (void)]
     [(funcidx idx)
-     (match (type-ref m who (func-ref* m who idx))
+     (match (func-ref m who idx)
        [(functype '() '()) (void)]
        [(functype params results)
         (raise-validation-error who
@@ -361,7 +361,6 @@
 
 (define-vector-refs
   [type-ref mod-types]
-  [import-ref mod-imports]
   [func-ref* mod-functions]
   [table-ref mod-tables]
   [memory-ref mod-memories]
@@ -369,10 +368,14 @@
   [code-ref mod-codes])
 
 (define (func-ref m who idx)
-  (define imports/max (vector-length (mod-imports m)))
+  (define imported-funcs (vector-filter func-import? (mod-imports m)))
+  (define imports/max (vector-length imported-funcs))
   (cond
     [(< idx imports/max)
-     (match (import-ref m who idx)
+     (match (vector-ref imported-funcs idx)
        [(import _ _ (typeidx tidx)) (type-ref m who tidx)]
        [(import mod name _) (raise-validation-error who "import ~a.~a is not a function" mod name)])]
     [else (type-ref m who (func-ref* m who (- idx imports/max)))]))
+
+(define func-import?
+  (compose1 typeidx? import-description))
