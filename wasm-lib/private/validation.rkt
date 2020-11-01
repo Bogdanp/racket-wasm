@@ -24,6 +24,7 @@
         (validate-tables)
         (validate-memories)
         (validate-globals)
+        (validate-datas (mod-datas m))
         (validate-start (mod-start m))
         (validate-functions (mod-functions m) (mod-codes m))
         (validate-exports (mod-exports m)))
@@ -95,16 +96,26 @@
 (define (validate-globals c)
   (begin0 c
     (for ([g (in-vector (ctx-globals c))])
-      (match-define (global (globaltype vt _) instrs) g)
-      (define global-c (struct-copy ctx c [return (list vt)]))
-      (define stack
-        (for/fold ([stack null])
-                  ([instr (in-vector instrs)])
-          (define who (list instr g))
-          (unless (instr-constant? global-c instr)
-            (raise-validation-error who "global instructions must be constant"))
-          (validate-instr global-c who stack instr)))
-      (check-types g (list vt) stack "result "))))
+      (match g
+        [(global (globaltype vt _) (vector instr))
+         (unless (instr-constant? c instr)
+           (raise-validation-error g "global definition instructions must be constant"))
+         (check-types g (list vt) (functype-results (instruction-type instr)) "result ")]
+
+        [(global _ _)
+         (raise-validation-error g "global definitions require exactly one instruction")]))))
+
+(define (validate-datas c datas)
+  (begin0 c
+    (for ([d (in-vector datas)])
+      (match d
+        [(data idx (vector instr) _)
+         (unless (instr-constant? c instr)
+           (raise-validation-error d "data definition instructions must be constant"))
+         (memory-ref c d idx)]
+
+        [(data _ _ _)
+         (raise-validation-error d "data definitions require exactly one instruction")]))))
 
 (define (validate-start c s)
   (define who "start function")
