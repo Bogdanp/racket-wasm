@@ -1,13 +1,12 @@
 #lang racket/base
 
 (require (for-syntax racket/base)
+         (prefix-in ra: data/ralist)
          racket/contract
-         racket/function
          racket/list
          racket/match
          racket/port
          racket/vector
-         syntax/parse/define
          "core.rkt")
 
 (provide
@@ -76,10 +75,7 @@
   (match (mod-start m)
     [#f (void)]
     [(funcidx idx)
-     (define-vector-refs m
-       [type-ref mod-types]
-       [func-ref mod-functions])
-     (match (type-ref who (func-ref who idx))
+     (match (type-ref m who (func-ref* m who idx))
        [(functype '() '()) (void)]
        [(functype params results)
         (raise-validation-error who
@@ -96,38 +92,20 @@
   (void))
 
 (define (validate-codes! m)
-  (define-vector-refs m
-    [type-ref mod-types]
-    [import-ref mod-imports]
-    [func-ref* mod-functions]
-    [table-ref mod-tables]
-    [memory-ref mod-memories]
-    [global-ref mod-globals]
-    [code-ref mod-codes])
-
-  (define imports/max (vector-length (mod-imports m)))
-  (define (func-ref who idx)
-    (cond
-      [(< idx imports/max)
-       (match (import-ref who idx)
-         [(import _ _ (typeidx tidx)) (type-ref who tidx)]
-         [(import mod name _) (raise-validation-error who "import ~a.~a is not a function" mod name)])]
-      [else (type-ref who (func-ref* who (- idx imports/max)))]))
-
   (for* ([(ftypeidx idx) (in-indexed (mod-functions m))]
          [here (in-value (list (funcidx idx)))]
-         [type (in-value (type-ref here ftypeidx))]
-         [code (in-value (code-ref here idx))])
+         [type (in-value (type-ref m here ftypeidx))]
+         [code (in-value (code-ref m here idx))])
     (define locals (make-locals type code))
-    (define-vector-ref local-ref m (const locals))
+    (define local-ref (make-static-ref locals vector-length vector-ref))
     (let validate-code! ([where here]
                          [type type]
                          [instrs (code-instrs code)]
-                         [labels (list type)])
-      (define-list-ref label-ref m (const labels))
+                         [labels (ra:list type)])
+      (define label-ref (make-static-ref labels ra:length ra:list-ref))
 
       (define (validate-block! who ftype block-instrs)
-        (validate-code! who ftype block-instrs (cons ftype labels)))
+        (validate-code! who ftype block-instrs (ra:cons ftype labels)))
 
       (define stack null)
 
@@ -187,7 +165,7 @@
 
           ;; [t1*] -> [t2*]
           [(instr:block (typeidx idx) block-code)
-           (define ft (type-ref who idx))
+           (define ft (type-ref m who idx))
            (check! who (instr:block ft block-code))]
 
           ;; [t1*] -> [t2*]
@@ -197,7 +175,7 @@
 
           ;; [t1*] -> [t2*]
           [(instr:loop (typeidx idx) block-code)
-           (define ft (type-ref who idx))
+           (define ft (type-ref m who idx))
            (check! who (instr:loop ft block-code))]
 
           ;; [t1*] -> [t2*]
@@ -207,7 +185,7 @@
 
           ;; [t1* i32] -> [t2*]
           [(instr:if (typeidx idx) then-code else-code)
-           (define ft (type-ref who idx))
+           (define ft (type-ref m who idx))
            (check! who (instr:if ft then-code else-code))]
 
           ;; [t1* i32] -> [t2*]
@@ -219,14 +197,14 @@
 
           ;; [t1*] -> [t2*]
           [(instr:call idx)
-           (tc! who (func-ref who idx))]
+           (tc! who (func-ref m who idx))]
 
           ;; [t1* i32] -> [t2*]
           [(instr:call_indirect idx tblidx)
-           (match (table-ref who tblidx)
+           (match (table-ref m who tblidx)
              [(tabletype (? funcref?) _)
               (pop! who i32)
-              (tc! who (type-ref who idx))]
+              (tc! who (type-ref m who idx))]
 
              [_
               (raise-validation-error who "table elemtype is not funcref")])]
@@ -244,12 +222,12 @@
            (push! vt)]
 
           [(instr:global.get idx)
-           (define g (global-ref who idx))
+           (define g (global-ref m who idx))
            (define gt (global-type g))
            (push! (globaltype-valtype gt))]
 
           [(instr:global.set idx)
-           (define g (global-ref who idx))
+           (define g (global-ref m who idx))
            (define gt (global-type g))
            (unless (globaltype-mutable? gt)
              (raise-validation-error who "cannot mutate constant"))
@@ -262,7 +240,7 @@
                (instr:i64.load8_u arg)
                (instr:i32.store8 arg)
                (instr:i64.store8 arg))
-           (memory-ref who 0)
+           (memory-ref m who 0)
            (check-alignment! who arg 8)
            (tc! who (instruction-type instr))]
 
@@ -272,7 +250,7 @@
                (instr:i64.load16_u arg)
                (instr:i32.store16 arg)
                (instr:i64.store16 arg))
-           (memory-ref who 0)
+           (memory-ref m who 0)
            (check-alignment! who arg 16)
            (tc! who (instruction-type instr))]
 
@@ -283,7 +261,7 @@
                (instr:i32.store arg)
                (instr:f32.store arg)
                (instr:i64.store32 arg))
-           (memory-ref who 0)
+           (memory-ref m who 0)
            (check-alignment! who arg 32)
            (tc! who (instruction-type instr))]
 
@@ -291,16 +269,16 @@
                (instr:f64.load arg)
                (instr:i64.store arg)
                (instr:f64.store arg))
-           (memory-ref who 0)
+           (memory-ref m who 0)
            (check-alignment! who arg 64)
            (tc! who (instruction-type instr))]
 
           [(instr:memory.size idx)
-           (memory-ref who idx)
+           (memory-ref m who idx)
            (tc! who (instruction-type instr))]
 
           [(instr:memory.grow idx)
-           (memory-ref who idx)
+           (memory-ref m who idx)
            (tc! who (instruction-type instr))]
 
           ;; Everything Else
@@ -363,30 +341,38 @@
 
 ;; accessors ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (make-ref m accessor len-fn ref-fn)
-  (define xs (accessor m))
+(define ((make-ref accessor len-fn ref-fn) ob who idx)
+  (define xs (accessor ob))
   (define max-idx (sub1 (len-fn xs)))
+  (when (> idx max-idx)
+    (raise-validation-error who "index out of bounds (max: ~a)" max-idx))
+  (ref-fn xs idx))
+
+(define (make-static-ref ob len-fn ref-fn)
+  (define ref (make-ref values len-fn ref-fn))
   (lambda (who idx)
-    (when (> idx max-idx)
-      (raise-validation-error who "index out of bounds (max: ~a)" max-idx))
-    (ref-fn xs idx)))
+    (ref ob who idx)))
 
-(define-syntax-parser define-ref
-  [(_ name:id m:expr accessor:expr len-fn:expr ref-fn:expr)
-   #'(define name (make-ref m accessor len-fn ref-fn))])
+(define-syntax-rule (define-ref name accessor len-fn ref-fn)
+  (define name (make-ref accessor len-fn ref-fn)))
 
-(define-syntax-parser define-list-ref
-  [(_ name:id m:expr accessor:expr)
-   #'(define-ref name m accessor length list-ref)])
+(define-syntax-rule (define-vector-refs [name accessor] ...)
+  (begin (define-ref name accessor vector-length vector-ref) ...))
 
-(define-syntax-parser define-vector-ref
-  [(_ name:id m:expr accessor:expr)
-   #'(define-ref name m accessor vector-length vector-ref)])
+(define-vector-refs
+  [type-ref mod-types]
+  [import-ref mod-imports]
+  [func-ref* mod-functions]
+  [table-ref mod-tables]
+  [memory-ref mod-memories]
+  [global-ref mod-globals]
+  [code-ref mod-codes])
 
-(define-syntax-parser define-list-refs
-  [(_ m:expr [name:id accessor:expr] ...+)
-   #'(begin (define-list-ref name m accessor) ...)])
-
-(define-syntax-parser define-vector-refs
-  [(_ m:expr [name:id accessor:expr] ...+)
-   #'(begin (define-vector-ref name m accessor) ...)])
+(define (func-ref m who idx)
+  (define imports/max (vector-length (mod-imports m)))
+  (cond
+    [(< idx imports/max)
+     (match (import-ref m who idx)
+       [(import _ _ (typeidx tidx)) (type-ref m who tidx)]
+       [(import mod name _) (raise-validation-error who "import ~a.~a is not a function" mod name)])]
+    [else (type-ref m who (func-ref* m who (- idx imports/max)))]))
