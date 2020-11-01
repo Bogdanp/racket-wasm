@@ -4,5 +4,5 @@
 (define version "0.0.0")
 (define deps '("base"
                "ralist"
-               "threading"))
+               "threading-lib"))
 (define build-deps '())
