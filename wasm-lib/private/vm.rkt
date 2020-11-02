@@ -45,7 +45,6 @@
   (match func
     [(hostfunc _ f) (apply f args)]
     [(localfunc _ code)
-     (define types (mod-types (vm-mod v)))
      (define instrs (code-instrs code))
      (define locals
        (make-vector (+ (length args)
@@ -54,121 +53,256 @@
      (for ([(arg posn) (in-indexed args)])
        (vector-set! locals posn arg))
      (let/ec return
-       (vm-exec v instrs types locals (ra:list return)))]))
+       (vm-exec v instrs locals (ra:list return)))]))
 
-(define (vm-exec v instrs types locals labels)
-  (define funcs (store-functions (vm-store v)))
+(define (vm-exec v instrs locals labels)
+  (define buf (make-bytes 8))
+  (define s (vm-store v))
+  (define types (mod-types (vm-mod v)))
+  (define funcs (store-functions s))
+  (define memory (store-memory s))
+  (define globals (store-globals s))
   (for/fold ([stack null])
             ([instr (in-vector instrs)])
-    #;(printf "instr: ~.s stack: ~s~n" instr stack)
-    (vm-eval v instr stack types funcs locals labels)))
+    (printf "instr: ~.s stack: ~s~n" instr stack)
+    (let retry ([instr instr])
+      (match instr
+        ;; Control instructions
+        [(instr:unreachable)
+         (trap "unreachable")]
 
-(define (vm-eval v instr stack types funcs locals labels)
-  (let retry ([instr instr])
-    (match instr
-      ;; Control instructions
-      [(instr:unreachable)
-       (trap "unreachable")]
+        [(instr:nop)
+         null]
 
-      [(instr:nop)
-       null]
+        [(instr:block (typeidx idx) block-code)
+         (retry (instr:block (vector-ref types idx) block-code))]
 
-      [(instr:block (typeidx idx) block-code)
-       (retry (instr:block (vector-ref types idx) block-code))]
+        [(instr:block type block-code)
+         (define result-count (length (functype-results type)))
+         (define result-stack
+           (let/ec return
+             (vm-exec v block-code locals (ra:cons return labels))))
+         (append (take result-stack result-count) stack)]
 
-      [(instr:block type block-code)
-       (define result-count (length (functype-results type)))
-       (define result-stack
-         (let/ec return
-           (vm-exec v block-code types locals (ra:cons return labels))))
-       (append (take result-stack result-count) stack)]
+        [(instr:loop (typeidx idx) loop-code)
+         (retry (instr:loop (vector-ref types idx) loop-code))]
 
-      [(instr:loop (typeidx idx) loop-code)
-       (retry (instr:loop (vector-ref types idx) loop-code))]
+        [(instr:loop type loop-code)
+         (define result-count (length (functype-results type)))
+         (define result-stack
+           (let/ec return
+             (let loop ()
+               (vm-exec v loop-code locals (ra:cons return labels))
+               (loop))))
+         (append (take result-stack result-count) stack)]
 
-      [(instr:loop type loop-code)
-       (define result-count (length (functype-results type)))
-       (define result-stack
-         (let/ec return
-           (let loop ()
-             (vm-exec v loop-code types locals (ra:cons return labels))
-             (loop))))
-       (append (take result-stack result-count) stack)]
+        [(instr:if (typeidx idx) then-code else-code)
+         (retry (instr:if (vector-ref types idx) then-code else-code))]
 
-      [(instr:if (typeidx idx) then-code else-code)
-       (retry (instr:if (vector-ref types idx) then-code else-code))]
+        [(instr:if type then-code else-code)
+         (define result-count (length (functype-results type)))
+         (define result-stack
+           (let/ec return
+             (match stack
+               [(cons 0 _) (if else-code (vm-exec v else-code locals (ra:cons return labels)) null)]
+               [(cons _ _) (if then-code (vm-exec v then-code locals (ra:cons return labels)) null)])))
+         (append (take result-stack result-count) (cdr stack))]
 
-      [(instr:if type then-code else-code)
-       (define result-count (length (functype-results type)))
-       (define result-stack
-         (let/ec return
-           (match stack
-             [(cons 0 _) (vm-exec v else-code types locals (ra:cons return labels))]
-             [(cons _ _) (vm-exec v then-code types locals (ra:cons return labels))])))
-       (append (take result-stack result-count) (cdr stack))]
+        [(instr:return)
+         ((ra:car labels) stack)]
 
-      [(instr:return)
-       ((ra:car labels) stack)]
+        [(instr:br idx)
+         ((ra:list-ref labels idx) stack)]
 
-      [(instr:br idx)
-       ((ra:list-ref labels idx) stack)]
+        [(instr:br_if idx)
+         (match stack
+           [(cons 0 _) (cdr stack)]
+           [(cons _ _) ((ra:list-ref labels idx) (cdr stack))])]
 
-      [(instr:br_if idx)
-       (match stack
-         [(cons 0 _) (cdr stack)]
-         [(cons _ _) ((ra:list-ref labels idx) (cdr stack))])]
+        [(instr:br_table tbl idx)
+         (define i (car stack))
+         (if (< i (vector-length tbl))
+             ((ra:list-ref labels (vector-ref tbl i)) stack)
+             ((ra:list-ref labels idx) stack))]
 
-      [(instr:br_table tbl idx)
-       (define i (car stack))
-       (if (< i (vector-length tbl))
-           ((ra:list-ref (vector-ref tbl i)) stack)
-           ((ra:list-ref idx) stack))]
+        [(instr:call idx)
+         (define-values (type func)
+           (match (vector-ref funcs idx)
+             [(and (hostfunc  type _) func) (values type func)]
+             [(and (localfunc type _) func) (values type func)]))
+         (define-values (args stack-remainder)
+           (split-at stack (length (functype-params type))))
+         (append (vm-apply v func args) stack-remainder)]
 
-      [(instr:call idx)
-       (define-values (type func)
-         (match (vector-ref funcs idx)
-           [(and (hostfunc  type _) func) (values type func)]
-           [(and (localfunc type _) func) (values type func)]))
-       (define-values (args stack-remainder)
-         (split-at stack (length (functype-params type))))
-       (append (vm-apply v func args) stack-remainder)]
+        [(instr:call_indirect idx _)
+         (trap "not implemented")]
 
-      [(instr:call_indirect idx _)
-       (trap "not implemented")]
+        ;; Parameteric Instructions
+        [(instr:drop)
+         (cdr stack)]
 
-      ;; Parameteric Instructions
-      [(instr:drop)
-       (cdr stack)]
+        [(instr:select)
+         (match stack
+           [(list* 0 _ v stack-remainder) (cons v stack-remainder)]
+           [(list* _ v _ stack-remainder) (cons v stack-remainder)])]
 
-      [(instr:select)
-       (match stack
-         [(list* 0 _ v stack-remainder) (cons v stack-remainder)]
-         [(list* _ v _ stack-remainder) (cons v stack-remainder)])]
+        ;; Variable Instructions
+        [(instr:local.get idx)
+         (cons (vector-ref locals idx) stack)]
 
-      ;; Variable Instructions
-      [(instr:local.get idx)
-       (cons (vector-ref locals idx) stack)]
+        [(instr:local.set idx)
+         (begin0 (cdr stack)
+           (vector-set! locals idx (car stack)))]
 
-      [(instr:local.set idx)
-       (begin0 (cdr stack)
-         (vector-set! locals idx (car stack)))]
+        [(instr:local.tee idx)
+         (begin0 stack
+           (vector-set! locals idx (car stack)))]
 
-      [(instr:local.tee idx)
-       (begin0 stack
-         (vector-set! locals idx (car stack)))]
+        [(instr:global.set idx)
+         (begin0 (cdr stack)
+           (vector-set! globals idx (car stack)))]
 
-      ;; Numeric Instructions
-      [(instr:i32.const n)
-       (cons n stack)]
+        [(instr:global.get idx)
+         (cons (vector-ref globals idx) stack)]
 
-      [(instr:i32.gt_s)
-       (cons (if (> (cadr stack) (car stack)) 1 0) (cddr stack))]
+        ;; Memory Instructions
+        [(or (instr:i32.load (memarg _ offset))
+             (instr:i64.load32_s (memarg _ offset)))
+         (match stack
+           [(list* addr stack-remainder)
+            (define ea (+ addr offset))
+            (memory-load! memory buf ea 4)
+            (cons (integer-bytes->integer buf #t #f 0 4) stack-remainder)])]
 
-      [(instr:i32.sub)
-       (cons (- (cadr stack) (car stack)) (cddr stack))]
+        [(instr:i64.load (memarg _ offset))
+         (match stack
+           [(list* addr stack-remainder)
+            (define ea (+ addr offset))
+            (memory-load! memory buf ea 8)
+            (cons (integer-bytes->integer buf #t #f 0 8) stack-remainder)])]
 
-      [(instr:i32.add)
-       (cons (+ (cadr stack) (car stack)) (cddr stack))])))
+        [(instr:i32.store (memarg _ offset))
+         (match stack
+           [(list* n addr stack-remainder)
+            (define ea (+ addr offset))
+            (begin0 stack-remainder
+              (memory-store! memory ea (integer->integer-bytes n 4 #t #f buf) 4))])]
+
+        [(instr:f32.store (memarg _ offset))
+         (match stack
+           [(list* n addr stack-remainder)
+            (define ea (+ addr offset))
+            (begin0 stack-remainder
+              (memory-store! memory ea (real->floating-point-bytes n 4 #f buf) 4))])]
+
+        [(instr:i64.store (memarg _ offset))
+         (match stack
+           [(list* n addr stack-remainder)
+            (define ea (+ addr offset))
+            (begin0 stack-remainder
+              (memory-store! memory ea (integer->integer-bytes n 8 #t #f buf) 8))])]
+
+        [(instr:f64.store (memarg _ offset))
+         (match stack
+           [(list* n addr stack-remainder)
+            (define ea (+ addr offset))
+            (begin0 stack-remainder
+              (memory-store! memory ea (real->floating-point-bytes n 8 #f buf) 8))])]
+
+        [(instr:i64.store32 (memarg _ offset))
+         (match stack
+           [(list* n addr stack-remainder)
+            (define ea (+ addr offset))
+            (begin0 stack-remainder
+              (memory-store! memory ea (integer->integer-bytes n 4 #t #f buf) 4))])]
+
+        [(instr:memory.size _)
+         (cons (memory-size memory) stack)]
+
+        [(instr:memory.grow _)
+         (match stack
+           [(list* n stack-remainder)
+            (cons (memory-grow! memory n) stack)])]
+
+        ;; Numeric Instructions
+        [(or (instr:i32.const n)
+             (instr:f32.const n)
+             (instr:i64.const n)
+             (instr:f64.const n))
+         (cons n stack)]
+
+        [(or (instr:i32.lt_s)
+             (instr:i32.lt_u)
+             (instr:i64.lt_s)
+             (instr:i64.lt_u)
+             (instr:f32.lt)
+             (instr:f64.lt))
+         (match stack
+           [(list* b a stack-remainder)
+            (cons (if (< a b) 1 0) stack-remainder)])]
+
+        [(or (instr:i32.le_s)
+             (instr:i32.le_u)
+             (instr:i64.le_s)
+             (instr:i64.le_u)
+             (instr:f32.le)
+             (instr:f64.le))
+         (match stack
+           [(list* b a stack-remainder)
+            (cons (if (<= a b) 1 0) stack-remainder)])]
+
+        [(or (instr:i32.gt_s)
+             (instr:i32.gt_u)
+             (instr:i64.gt_s)
+             (instr:i64.gt_u)
+             (instr:f32.gt)
+             (instr:f64.gt))
+         (match stack
+           [(list* b a stack-remainder)
+            (cons (if (> a b) 1 0) stack-remainder)])]
+
+        [(or (instr:i32.ge_s)
+             (instr:i32.ge_u)
+             (instr:i64.ge_s)
+             (instr:i64.ge_u)
+             (instr:f32.ge)
+             (instr:f64.ge))
+         (match stack
+           [(list* b a stack-remainder)
+            (cons (if (>= a b) 1 0) stack-remainder)])]
+
+        [(or (instr:i32.sub)
+             (instr:f32.sub)
+             (instr:i64.sub)
+             (instr:f64.sub))
+         (match stack
+           [(list* b a stack-remainder)
+            (cons (- a b) stack-remainder)])]
+
+        [(or (instr:i32.add)
+             (instr:f32.add)
+             (instr:i64.add)
+             (instr:f64.add))
+         (match stack
+           [(list* b a stack-remainder)
+            (cons (+ a b) stack-remainder)])]
+
+        [(instr:i32.wrap_i64)
+         (match stack
+           [(list* n stack-remainder)
+            (cons (modulo n (expt 2 32)) stack-remainder)])]
+
+        [(instr:i64.extend_i32_u)
+         stack]
+
+        [(instr:f32.demote_f64)
+         (match stack
+           [(list* n stack-remainder)
+            ;; FIXME
+            (cons n stack-remainder)])]
+
+        [_
+         (trap "~e not implemented" instr)]))))
 
 (define (take xs n)
   (cond
