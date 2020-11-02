@@ -1,0 +1,1 @@
+(#f . "only one table allowed\n  at: (tabletype '(elemtype funcref) (limits 1 #f))")

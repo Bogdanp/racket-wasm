@@ -86,13 +86,17 @@
 
 (define (validate-tables c)
   (begin0 c
-    (for ([(t idx) (in-indexed (ctx-tables c))])
-      (validate-limits (tableidx idx) t max-tblsize))))
+    (match (ctx-tables c)
+      [(vector) (void)]
+      [(vector lim) (validate-limits (tableidx 0) lim max-tblsize)]
+      [(vector _ lims ...) (raise-validation-error lims "only one table allowed")])))
 
 (define (validate-memories c)
   (begin0 c
-    (for ([(m idx) (in-indexed (ctx-memories c))])
-      (validate-limits (memidx idx) m max-memsize))))
+    (match (ctx-memories c)
+      [(vector) (void)]
+      [(vector lim) (validate-limits (memidx 0) lim max-memsize)]
+      [(vector _ lims ...) (raise-validation-error lims "only one memory block allowed")])))
 
 (define (validate-globals c)
   (begin0 c
