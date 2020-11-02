@@ -64,7 +64,7 @@
   (define globals (store-globals s))
   (for/fold ([stack null])
             ([instr (in-vector instrs)])
-    (printf "instr: ~.s stack: ~s~n" instr stack)
+    #;(printf "stack: ~s instr: ~e~n" stack instr)
     (let retry ([instr instr])
       (match instr
         ;; Control instructions
@@ -90,10 +90,10 @@
         [(instr:loop type loop-code)
          (define result-count (length (functype-results type)))
          (define result-stack
-           (let/ec return
-             (let loop ()
-               (vm-exec v loop-code locals (ra:cons return labels))
-               (loop))))
+           (let loop ()
+             (let/ec continue
+               (vm-exec v loop-code locals (ra:cons continue labels)))
+             (loop)))
          (append (take result-stack result-count) stack)]
 
         [(instr:if (typeidx idx) then-code else-code)
@@ -172,21 +172,21 @@
            [(list* addr stack-remainder)
             (define ea (+ addr offset))
             (memory-load! memory buf ea 4)
-            (cons (integer-bytes->integer buf #t #f 0 4) stack-remainder)])]
+            (cons (integer-bytes->integer buf #f #f 0 4) stack-remainder)])]
 
         [(instr:i64.load (memarg _ offset))
          (match stack
            [(list* addr stack-remainder)
             (define ea (+ addr offset))
             (memory-load! memory buf ea 8)
-            (cons (integer-bytes->integer buf #t #f 0 8) stack-remainder)])]
+            (cons (integer-bytes->integer buf #f #f 0 8) stack-remainder)])]
 
         [(instr:i32.store (memarg _ offset))
          (match stack
            [(list* n addr stack-remainder)
             (define ea (+ addr offset))
             (begin0 stack-remainder
-              (memory-store! memory ea (integer->integer-bytes n 4 #t #f buf) 4))])]
+              (memory-store! memory ea (integer->integer-bytes n 4 #f #f buf) 4))])]
 
         [(instr:f32.store (memarg _ offset))
          (match stack
@@ -200,7 +200,7 @@
            [(list* n addr stack-remainder)
             (define ea (+ addr offset))
             (begin0 stack-remainder
-              (memory-store! memory ea (integer->integer-bytes n 8 #t #f buf) 8))])]
+              (memory-store! memory ea (integer->integer-bytes n 8 #f #f buf) 8))])]
 
         [(instr:f64.store (memarg _ offset))
          (match stack
@@ -214,7 +214,7 @@
            [(list* n addr stack-remainder)
             (define ea (+ addr offset))
             (begin0 stack-remainder
-              (memory-store! memory ea (integer->integer-bytes n 4 #t #f buf) 4))])]
+              (memory-store! memory ea (integer->integer-bytes (modulo n (expt 2 32)) 4 #f #f buf) 4))])]
 
         [(instr:memory.size _)
          (cons (memory-size memory) stack)]
@@ -222,9 +222,17 @@
         [(instr:memory.grow _)
          (match stack
            [(list* n stack-remainder)
-            (cons (memory-grow! memory n) stack)])]
+            (define size (memory-size memory))
+            (memory-grow! memory n)
+            (cons size stack-remainder)])]
 
         ;; Numeric Instructions
+        [(or (instr:i32.eqz)
+             (instr:i64.eqz))
+         (match stack
+           [(list* n stack-remainder)
+            (cons (if (zero? n) 1 0) stack-remainder)])]
+
         [(or (instr:i32.const n)
              (instr:f32.const n)
              (instr:i64.const n)
@@ -286,6 +294,30 @@
          (match stack
            [(list* b a stack-remainder)
             (cons (+ a b) stack-remainder)])]
+
+        [(and (instr:i32.and)
+              (instr:i64.and))
+         (match stack
+           [(list* b a stack-remainder)
+            (cons (bitwise-and a b) stack-remainder)])]
+
+        [(or (instr:i32.or)
+             (instr:i64.or))
+         (match stack
+           [(list* b a stack-remainder)
+            (cons (bitwise-ior a b) stack-remainder)])]
+
+        [(or (instr:i32.shl)
+             (instr:i64.shl))
+         (match stack
+           [(list* amt n stack-remainder)
+            (cons (arithmetic-shift n amt) stack-remainder)])]
+
+        [(or (instr:i32.shr_s)
+             (instr:i64.shr_s))
+         (match stack
+           [(list* amt n stack-remainder)
+            (cons (arithmetic-shift n (- amt)) stack-remainder)])]
 
         [(instr:i32.wrap_i64)
          (match stack
