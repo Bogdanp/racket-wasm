@@ -18,7 +18,7 @@
      [(32) #'(define name op)]
      [(64) #'(define name unsafe-op)])])
 
-;; Dito for single flonums on 64bit systems.
+;; Ditto for single flonums on 64bit systems.
 (define-syntax-parser define-f32-op
   [(_ op:id)
    #:with name (format-id #'op "f32~a" #'op)
