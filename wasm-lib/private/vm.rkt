@@ -7,7 +7,9 @@
          threading
          "core.rkt"
          "error.rkt"
-         "memory.rkt")
+         "memory.rkt"
+         (submod "runtime.rkt" i32)
+         (submod "runtime.rkt" i64))
 
 (provide
  vm?
@@ -64,6 +66,10 @@
   (define globals (store-globals s))
   (for/fold ([stack null])
             ([instr (in-vector instrs)])
+    (define-syntax-rule (smatch [var ... rest-id] e)
+      (match stack [(list* var ... rest-id) e]))
+    (define-syntax-rule (smatch* [var ...] e)
+      (smatch [var ... st] (cons e st)))
     #;(printf "stack: ~s instr: ~e~n" stack instr)
     (let retry ([instr instr])
       (match instr
@@ -227,17 +233,51 @@
             (cons size stack-remainder)])]
 
         ;; Numeric Instructions
-        [(or (instr:i32.eqz)
-             (instr:i64.eqz))
-         (match stack
-           [(list* n stack-remainder)
-            (cons (if (zero? n) 1 0) stack-remainder)])]
-
         [(or (instr:i32.const n)
-             (instr:f32.const n)
              (instr:i64.const n)
+             (instr:f32.const n)
              (instr:f64.const n))
          (cons n stack)]
+
+        [(instr:i32.add)    (smatch* [b a] (iadd32   a b))]
+        [(instr:i32.sub)    (smatch* [b a] (isub32   a b))]
+        [(instr:i32.mul)    (smatch* [b a] (imul32   a b))]
+        [(instr:i32.div_u)  (smatch* [b a] (idiv32_u a b))]
+        [(instr:i32.div_s)  (smatch* [b a] (idiv32_s a b))]
+        [(instr:i32.rem_u)  (smatch* [b a] (irem32_u a b))]
+        [(instr:i32.rem_s)  (smatch* [b a] (irem32_s a b))]
+        [(instr:i32.and)    (smatch* [b a] (iand32   a b))]
+        [(instr:i32.or)     (smatch* [b a] (ior32    a b))]
+        [(instr:i32.xor)    (smatch* [b a] (ixor32   a b))]
+        [(instr:i32.shl)    (smatch* [b a] (ishl32   a b))]
+        [(instr:i32.shr_u)  (smatch* [b a] (ishr32_u a b))]
+        [(instr:i32.shr_s)  (smatch* [b a] (ishr32_s a b))]
+        [(instr:i32.clz)    (smatch* [n]   (iclz32     n))]
+        [(instr:i32.ctz)    (smatch* [n]   (ictz32     n))]
+        [(instr:i32.popcnt) (smatch* [n]   (ipopcnt32  n))]
+        [(instr:i32.eqz)    (smatch* [n]   (ieqz32     n))]
+        [(instr:i32.eq)     (smatch* [b a] (ieq32    a b))]
+        [(instr:i32.ne)     (smatch* [b a] (ine32    a b))]
+
+        [(instr:i64.add)    (smatch* [b a] (iadd64   a b))]
+        [(instr:i64.sub)    (smatch* [b a] (isub64   a b))]
+        [(instr:i64.mul)    (smatch* [b a] (imul64   a b))]
+        [(instr:i64.div_u)  (smatch* [b a] (idiv64_u a b))]
+        [(instr:i64.div_s)  (smatch* [b a] (idiv64_s a b))]
+        [(instr:i64.rem_u)  (smatch* [b a] (irem64_u a b))]
+        [(instr:i64.rem_s)  (smatch* [b a] (irem64_s a b))]
+        [(instr:i64.and)    (smatch* [b a] (iand64   a b))]
+        [(instr:i64.or)     (smatch* [b a] (ior64    a b))]
+        [(instr:i64.xor)    (smatch* [b a] (ixor64   a b))]
+        [(instr:i64.shl)    (smatch* [b a] (ishl64   a b))]
+        [(instr:i64.shr_u)  (smatch* [b a] (ishr64_u a b))]
+        [(instr:i64.shr_s)  (smatch* [b a] (ishr64_s a b))]
+        [(instr:i64.clz)    (smatch* [n]   (iclz64     n))]
+        [(instr:i64.ctz)    (smatch* [n]   (ictz64     n))]
+        [(instr:i64.popcnt) (smatch* [n]   (ipopcnt64  n))]
+        [(instr:i64.eqz)    (smatch* [n]   (ieqz64     n))]
+        [(instr:i64.eq)     (smatch* [b a] (ieq64    a b))]
+        [(instr:i64.ne)     (smatch* [b a] (ine64    a b))]
 
         [(or (instr:i32.lt_s)
              (instr:i32.lt_u)
@@ -279,45 +319,17 @@
            [(list* b a stack-remainder)
             (cons (if (>= a b) 1 0) stack-remainder)])]
 
-        [(or (instr:i32.sub)
-             (instr:f32.sub)
-             (instr:i64.sub)
+        [(or (instr:f32.sub)
              (instr:f64.sub))
          (match stack
            [(list* b a stack-remainder)
             (cons (- a b) stack-remainder)])]
 
-        [(or (instr:i32.add)
-             (instr:f32.add)
-             (instr:i64.add)
+        [(or (instr:f32.add)
              (instr:f64.add))
          (match stack
            [(list* b a stack-remainder)
             (cons (+ a b) stack-remainder)])]
-
-        [(and (instr:i32.and)
-              (instr:i64.and))
-         (match stack
-           [(list* b a stack-remainder)
-            (cons (bitwise-and a b) stack-remainder)])]
-
-        [(or (instr:i32.or)
-             (instr:i64.or))
-         (match stack
-           [(list* b a stack-remainder)
-            (cons (bitwise-ior a b) stack-remainder)])]
-
-        [(or (instr:i32.shl)
-             (instr:i64.shl))
-         (match stack
-           [(list* amt n stack-remainder)
-            (cons (arithmetic-shift n amt) stack-remainder)])]
-
-        [(or (instr:i32.shr_s)
-             (instr:i64.shr_s))
-         (match stack
-           [(list* amt n stack-remainder)
-            (cons (arithmetic-shift n (- amt)) stack-remainder)])]
 
         [(instr:i32.wrap_i64)
          (match stack
