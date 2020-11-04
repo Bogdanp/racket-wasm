@@ -85,7 +85,11 @@
                   (if (i32= 1 (& n 1)) (i32+ pop 1) pop)
                   (i32- bits 1))])))
 
+(define i8max  #xFF)
+(define i16max #xFFFFF)
 (define i32max #xFFFFFFFF)
+(define i64max #xFFFFFFFFFFFFFFFF)
+
 (define i32popcnt (make-popcnt 32 i32rshift i32and))
 (define-clz (i32clz v)
   #:bits 32
@@ -95,7 +99,6 @@
   #:=-fn i32=
   #:&-fn i32and)
 
-(define i64max #xFFFFFFFFFFFFFFFF)
 (define i64popcnt (make-popcnt 64
                                (lambda (n amt)
                                  (arithmetic-shift n (- amt)))
@@ -160,9 +163,14 @@
   (provide (all-defined-out))
   (begin-encourage-inline
     (define (i64->bytes n buf)   (integer->bytes n 8 buf))
+    (define (i64->bytes8  n buf) (integer->bytes (remainder n i8max) 1 buf))
+    (define (i64->bytes16 n buf) (integer->bytes (remainder n i16max) 2 buf))
     (define (i64->bytes32 n buf) (integer->bytes (remainder n i32max) 4 buf))
     (define (bytes->i64 buf)     (bytes->integer buf 8))
-    (define (bytes->u64 buf)     (bytes->integer buf 8 #f))
+    (define (bytes->u8  buf)     (u32->s32 (bytes->integer buf 1 #f)))
+    (define (bytes->u16 buf)     (u32->s32 (bytes->integer buf 2 #f)))
+    (define (bytes->u32 buf)     (u32->s32 (bytes->integer buf 4 #f)))
+    (define (bytes->u64 buf)     (u64->s64 (bytes->integer buf 8 #f)))
 
     (define (iadd64 a b)       (remainder (+ a b) i64max))
     (define (isub64 a b)       (remainder (+ (- a b) i64max) i64max))

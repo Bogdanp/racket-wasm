@@ -28,6 +28,7 @@
             (store-add-memory m)
             (store-add-data m)
             (store-add-functions m)
+            (store-add-elements m)
             (store-add-globals m))))
 
 (define/contract (vm-ref v name)
@@ -66,6 +67,7 @@
   (define buf (make-bytes 8))
   (define s (vm-store v))
   (define types (mod-types (vm-mod v)))
+  (define table (store-table s))
   (define funcs (store-functions s))
   (define memory (store-memory s))
   (define globals (store-globals s))
@@ -145,8 +147,14 @@
            (split-at stack (length (functype-params type))))
          (append (vm-apply v func args) stack-remainder)]
 
-        [(instr:call_indirect idx _)
-         (trap "not implemented")]
+        [(instr:call_indirect typeidx _)
+         (match stack
+           [(cons idx stack)
+            (define type (vector-ref types typeidx))
+            (define func (vector-ref table idx))
+            (define-values (args stack-remainder)
+              (split-at stack (length (functype-params type))))
+            (append (vm-apply v func args) stack-remainder)])]
 
         ;; Parameteric Instructions
         [(instr:drop)
@@ -180,11 +188,27 @@
 
         ;; Memory Instructions
         [(or (instr:i32.load     (memarg _ offset))
+             (instr:i32.load8_s  (memarg _ offset))
+             (instr:i32.load16_s (memarg _ offset))
+             (instr:i64.load8_s  (memarg _ offset))
+             (instr:i64.load16_s (memarg _ offset))
              (instr:i64.load32_s (memarg _ offset)))
          (smatch [addr]
            (define ea (+ addr offset))
            (memory-load! memory buf ea 4)
            (bytes->i32 buf))]
+
+        [(instr:i64.load8_u (memarg _ offset))
+         (smatch [addr]
+           (define ea (+ addr offset))
+           (memory-load! memory buf ea 1)
+           (bytes->u8 buf))]
+
+        [(instr:i64.load16_u (memarg _ offset))
+         (smatch [addr]
+           (define ea (+ addr offset))
+           (memory-load! memory buf ea 2)
+           (bytes->u16 buf))]
 
         [(instr:i64.load32_u (memarg _ offset))
          (smatch [addr]
@@ -207,6 +231,16 @@
          (sconsume [n addr]
            (define ea (+ addr offset))
            (memory-store! memory ea (i64->bytes n buf) 8))]
+
+        [(instr:i64.store8 (memarg _ offset))
+         (sconsume [n addr]
+           (define ea (+ addr offset))
+           (memory-store! memory ea (i64->bytes8 n buf) 1))]
+
+        [(instr:i64.store16 (memarg _ offset))
+         (sconsume [n addr]
+           (define ea (+ addr offset))
+           (memory-store! memory ea (i64->bytes16 n buf) 2))]
 
         [(instr:i64.store32 (memarg _ offset))
          (sconsume [n addr]
@@ -357,10 +391,12 @@
       [(import mod name (? globaltype?))
        (values functions table memory (lookup "global" mod name))])))
 
+;; FIXME: size
 (define (store-add-table s m)
   (match (mod-tables m)
     [(vector) s]
-    [(vector (tabletype _ _)) (struct-copy store s [table (hash)])]))
+    [(vector (tabletype _ _))
+     (struct-copy store s [table (make-vector 65535)])]))
 
 (define (store-add-memory s m)
   (match (mod-memories m)
@@ -373,6 +409,17 @@
     (for ([d (in-vector (mod-datas m))])
       (match-define (data _ (vector (instr:i32.const offset)) bs) d)
       (memory-store! (store-memory s) offset bs))))
+
+(define (store-add-elements s m)
+  (define table (store-table s))
+  (define functions (store-functions s))
+  (begin0 s
+    (for ([e (in-vector (mod-elements m))])
+      (match-define (element _ (vector (instr:i32.const offset)) init) e)
+      (for ([it  (in-vector init)]
+            [tblidx (in-naturals offset)])
+        (match-define (funcidx idx) it)
+        (vector-set! table tblidx (vector-ref functions idx))))))
 
 (define (store-add-functions s m)
   (define types (mod-types m))
