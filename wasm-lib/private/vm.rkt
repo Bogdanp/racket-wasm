@@ -59,7 +59,7 @@
      (for ([(arg posn) (in-indexed args)])
        (vector-set! locals posn arg))
      (define stack
-       (let/ec return
+       (let/cc return
          (vm-exec v instrs locals (ra:list return))))
      stack]))
 
@@ -77,8 +77,8 @@
       (match stack [(list* var ... st) e ... st]))
     (define-syntax-rule (smatch (var ...) e ... eN)
       (match stack [(list* var ... st) e ... (cons eN st)]))
-    (printf "stack: ~s instr: ~e~n" stack instr)
-    (let retry ([instr instr])
+    #;(printf "stack: ~s instr: ~e~n" stack instr)
+    (let retry ()
       (match instr
         ;; Control instructions
         [(instr:unreachable)
@@ -87,35 +87,38 @@
         [(instr:nop)
          null]
 
-        [(instr:block (typeidx idx) block-code)
-         (retry (instr:block (vector-ref types idx) block-code))]
+        [(instr:block (typeidx idx) _)
+         (set-instr:block-type! instr (vector-ref types idx))
+         (retry)]
 
         [(instr:block type block-code)
          (define result-count (length (functype-results type)))
          (define result-stack
-           (let/ec return
+           (let/cc return
              (vm-exec v block-code locals (ra:cons return labels))))
          (append (take result-stack result-count) stack)]
 
-        [(instr:loop (typeidx idx) loop-code)
-         (retry (instr:loop (vector-ref types idx) loop-code))]
+        [(instr:loop (typeidx idx) _)
+         (set-instr:loop-type! instr (vector-ref types idx))
+         (retry)]
 
         [(instr:loop type loop-code)
          (define result-count (length (functype-results type)))
          (define result-stack
            (let loop ()
-             (let/ec continue
+             (let/cc continue
                (vm-exec v loop-code locals (ra:cons continue labels)))
              (loop)))
          (append (take result-stack result-count) stack)]
 
-        [(instr:if (typeidx idx) then-code else-code)
-         (retry (instr:if (vector-ref types idx) then-code else-code))]
+        [(instr:if (typeidx idx) _ _)
+         (set-instr:if-type! (vector-ref types idx))
+         (retry)]
 
         [(instr:if type then-code else-code)
          (define result-count (length (functype-results type)))
          (define result-stack
-           (let/ec return
+           (let/cc return
              (match stack
                [(cons 0 _) (if else-code (vm-exec v else-code locals (ra:cons return labels)) null)]
                [(cons _ _) (if then-code (vm-exec v then-code locals (ra:cons return labels)) null)])))

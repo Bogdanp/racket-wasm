@@ -135,6 +135,7 @@
        (provide (struct-out id))
        (struct id (~? (f ...) ())
          #:transparent
+         #:mutable
          #:methods gen:instruction
          [(define (instruction-type _)
             (~? (begin (define-typevar v) ...))
