@@ -32,7 +32,7 @@
             (store-add-globals m))))
 
 (define/contract (vm-ref v name)
-  (-> vm? string? (or/c #f procedure?))
+  (-> vm? string? (or/c #f procedure? memory?))
   (define s (vm-store v))
   (define description
     (for*/first ([e (in-vector (mod-exports (vm-mod v)))]
@@ -45,7 +45,10 @@
     [(funcidx idx)
      (define func (vector-ref (store-functions s) idx))
      (lambda args
-       (vm-apply v func args))]))
+       (vm-apply v func args))]
+
+    [(memidx _)
+     (store-memory s)]))
 
 (define (vm-apply v func args)
   (match func
