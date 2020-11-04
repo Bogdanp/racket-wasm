@@ -3,6 +3,7 @@
 (require (for-syntax racket/base
                      racket/syntax)
          (submod racket/performance-hint begin-encourage-inline)
+         racket/math
          racket/unsafe/ops
          syntax/parse/define)
 
@@ -30,18 +31,22 @@
 (define-syntax-rule (define-i32-ops op ...) (begin (define-i32-op op) ...))
 (define-syntax-rule (define-f32-ops op ...) (begin (define-f32-op op) ...))
 
-(define-i32-ops = < <= > >= + - * quotient modulo remainder and ior xor lshift rshift)
+(define-i32-ops = < <= > >= + - * quotient remainder and ior xor lshift rshift)
 (define-f32-ops = < <= > >= + - * /)
 
-(define conversion-buf (make-bytes 8))
+(begin-encourage-inline
+  (define (u->s n [size 4] [buf (make-bytes size)])
+    (integer->integer-bytes n size #f #f buf)
+    (integer-bytes->integer buf #t #f 0 size))
 
-(define (u->s n [size 4])
-  (integer->integer-bytes n size #f #f conversion-buf)
-  (integer-bytes->integer conversion-buf #t #f 0 size))
+  (define (s->u n [size 4] [buf (make-bytes size)])
+    (integer->integer-bytes n size #t #f buf)
+    (integer-bytes->integer buf #f #f 0 size))
 
-(define (s->u n [size 4])
-  (integer->integer-bytes n size #t #f conversion-buf)
-  (integer-bytes->integer conversion-buf #f #f 0 size))
+  (define (u32->s32 n [buf #f]) (u->s n 4 (or buf (make-bytes 4))))
+  (define (u64->s64 n [buf #f]) (u->s n 8 (or buf (make-bytes 8))))
+  (define (s32->u32 n [buf #f]) (s->u n 4 (or buf (make-bytes 4))))
+  (define (s64->u64 n [buf #f]) (s->u n 8 (or buf (make-bytes 8)))))
 
 (define-syntax-parser define-clz
   [(_ (name:id v:id)
@@ -103,48 +108,98 @@
   #:=-fn =
   #:&-fn bitwise-and)
 
+(begin-encourage-inline
+  (define (integer->bytes n [size 4] [buf (make-bytes size)])
+    (integer->integer-bytes n size #t #f buf))
+
+  (define (bytes->integer buf [size 4] [signed? #t])
+    (integer-bytes->integer buf signed? #f 0 size))
+
+  (define (real->bytes n [size 4] [buf (make-bytes size)])
+    (real->floating-point-bytes n size #f buf))
+
+  (define (bytes->real buf [size 4])
+    (floating-point-bytes->real buf #f 0 size)))
+
 (module+ i32
   (provide (all-defined-out))
   (begin-encourage-inline
-    (define (iadd32 a b)   (i32modulo (i32+ a b) i32max))
-    (define (isub32 a b)   (i32modulo (i32+ (i32- a b) i32max) i32max))
-    (define (imul32 a b)   (i32modulo (i32* a b) i32max))
-    (define (idiv32_u a b) (i32quotient a b))
-    (define (idiv32_s a b) (i32quotient (u->s a) (u->s b)))
-    (define (irem32_u a b) (i32remainder a b))
-    (define (irem32_s a b) (i32remainder (u->s a) (u->s b)))
-    (define (iand32 a b)   (i32and a b))
-    (define (ior32 a b)    (i32ior a b))
-    (define (ixor32 a b)   (i32xor a b))
-    (define (ishl32 a b)   (i32lshift a (i32modulo b 32)))
-    (define (ishr32_u a b) (i32rshift a (i32modulo b 32)))
-    (define (ishr32_s a b) (i32rshift a (i32modulo b 32))) ;; FIXME: sign extension
-    (define (iclz32 a)     (i32clz a))
-    (define (ictz32 a)     (i32ctz a))
-    (define (ipopcnt32 a)  (i32popcnt a))
-    (define (ieqz32 a)     (if (i32= a 0) 1 0))
-    (define (ieq32 a b)    (if (i32= a b) 1 0))
-    (define (ine32 a b)    (if (i32= a b) 0 1))))
+    (define (i32->bytes n buf) (integer->bytes n 4 buf))
+    (define (bytes->i32 buf)   (bytes->integer buf 4))
+
+    (define (iadd32 a b)       (i32remainder (i32+ a b) i32max))
+    (define (isub32 a b)       (i32remainder (i32+ (i32- a b) i32max) i32max))
+    (define (imul32 a b)       (i32remainder (i32* a b) i32max))
+    (define (idiv32_u a b buf) (u32->s32 (i32quotient (s32->u32 a buf) (s32->u32 b buf)) buf))
+    (define (idiv32_s a b buf) (i32quotient a b))
+    (define (irem32_u a b buf) (u32->s32 (i32remainder (s32->u32 a buf) (s32->u32 b buf))))
+    (define (irem32_s a b buf) (i32remainder a b))
+    (define (iand32 a b)       (i32and a b))
+    (define (ior32 a b)        (i32ior a b))
+    (define (ixor32 a b)       (i32xor a b))
+    (define (ishl32 a b)       (i32lshift a (i32remainder b 32)))
+    (define (ishr32_u a b buf) (i32rshift a (i32remainder b 32))) ;; FIXME
+    (define (ishr32_s a b buf) (i32rshift a (i32remainder b 32))) ;; FIXME: sign extension
+    (define (iclz32 a)         (i32clz a))
+    (define (ictz32 a)         (i32ctz a))
+    (define (ipopcnt32 a)      (i32popcnt a))
+    (define (ieqz32 a)         (if (i32= a 0) 1 0))
+    (define (ieq32 a b)        (if (i32= a b) 1 0))
+    (define (ine32 a b)        (if (i32= a b) 0 1))
+    (define (ilt32_u a b buf)  (if (i32< (s32->u32 a buf) (s32->u32 b buf)) 1 0))
+    (define (ilt32_s a b buf)  (if (i32< a b) 1 0))
+    (define (igt32_u a b buf)  (if (i32> (s32->u32 a buf) (s32->u32 b buf)) 1 0))
+    (define (igt32_s a b buf)  (if (i32> a b) 1 0))
+    (define (ile32_u a b buf)  (if (i32<= (s32->u32 a buf) (s32->u32 b buf)) 1 0))
+    (define (ile32_s a b buf)  (if (i32<= a b) 1 0))
+    (define (ige32_u a b buf)  (if (i32>= (s32->u32 a buf) (s32->u32 b buf)) 1 0))
+    (define (ige32_s a b buf)  (if (i32>= a b) 1 0))
+    (define (iwrap32 n)        (remainder n i32max))))
 
 (module+ i64
   (provide (all-defined-out))
   (begin-encourage-inline
-    (define (iadd64 a b)   (modulo (+ a b) i64max))
-    (define (isub64 a b)   (modulo (+ (- a b) i64max) i64max))
-    (define (imul64 a b)   (modulo (* a b) i64max))
-    (define (idiv64_u a b) (quotient a b))
-    (define (idiv64_s a b) (quotient (u->s a) (u->s b)))
-    (define (irem64_u a b) (remainder a b))
-    (define (irem64_s a b) (remainder (u->s a) (u->s b)))
-    (define (iand64 a b)   (bitwise-and a b))
-    (define (ior64 a b)    (bitwise-ior a b))
-    (define (ixor64 a b)   (bitwise-xor a b))
-    (define (ishl64 a b)   (arithmetic-shift a (modulo b 64)))
-    (define (ishr64_u a b) (arithmetic-shift a (- (modulo b 64))))
-    (define (ishr64_s a b) (arithmetic-shift a (- (modulo b 64)))) ;; FIXME: signe extension
-    (define (iclz64 a)     (i64clz a))
-    (define (ictz64 a)     (i64ctz a))
-    (define (ipopcnt64 a)  (i64popcnt a))
-    (define (ieqz64 a)     (if (= a 0) 1 0))
-    (define (ieq64 a b)    (if (= a b) 1 0))
-    (define (ine64 a b)    (if (= a b) 0 1))))
+    (define (i64->bytes n buf)   (integer->bytes n 8 buf))
+    (define (i64->bytes32 n buf) (integer->bytes (remainder n i32max) 4 buf))
+    (define (bytes->i64 buf)     (bytes->integer buf 8))
+    (define (bytes->u64 buf)     (bytes->integer buf 8 #f))
+
+    (define (iadd64 a b)       (remainder (+ a b) i64max))
+    (define (isub64 a b)       (remainder (+ (- a b) i64max) i64max))
+    (define (imul64 a b)       (remainder (* a b) i64max))
+    (define (idiv64_u a b buf) (u64->s64 (quotient (s64->u64 a buf) (s64->u64 b buf))))
+    (define (idiv64_s a b buf) (quotient a b))
+    (define (irem64_u a b buf) (u64->s64 (remainder (s64->u64 a buf) (s64->u64 b buf))))
+    (define (irem64_s a b buf) (remainder a b))
+    (define (iand64 a b)       (bitwise-and a b))
+    (define (ior64 a b)        (bitwise-ior a b))
+    (define (ixor64 a b)       (bitwise-xor a b))
+    (define (ishl64 a b)       (arithmetic-shift a (remainder b 64)))
+    (define (ishr64_u a b buf) (arithmetic-shift a (- (remainder b 64)))) ;; FIXME
+    (define (ishr64_s a b buf) (arithmetic-shift a (- (remainder b 64)))) ;; FIXME: sign extension
+    (define (iclz64 a)         (i64clz a))
+    (define (ictz64 a)         (i64ctz a))
+    (define (ipopcnt64 a)      (i64popcnt a))
+    (define (ieqz64 a)         (if (= a 0) 1 0))
+    (define (ieq64 a b)        (if (= a b) 1 0))
+    (define (ine64 a b)        (if (= a b) 0 1))
+    (define (ilt64_u a b buf)  (if (<  (s64->u64 a buf) (s64->u64 b buf)) 1 0))
+    (define (ilt64_s a b buf)  (if (<  a b) 1 0))
+    (define (igt64_u a b buf)  (if (>  (s64->u64 a buf) (s64->u64 b buf)) 1 0))
+    (define (igt64_s a b buf)  (if (>  a b) 1 0))
+    (define (ile64_u a b buf)  (if (<= (s64->u64 a buf) (s64->u64 b buf)) 1 0))
+    (define (ile64_s a b buf)  (if (<= a b) 1 0))
+    (define (ige64_u a b buf)  (if (>= (s64->u64 a buf) (s64->u64 b buf)) 1 0))
+    (define (ige64_s a b buf)  (if (>= a b) 1 0))))
+
+(module+ f32
+  (provide (all-defined-out))
+  (begin-encourage-inline
+    (define (f32->bytes n buf) (real->bytes n 4 buf))
+
+    (define (fdemote64 n) n)))
+
+(module+ f64
+  (provide (all-defined-out))
+  (begin-encourage-inline
+    (define (f64->bytes n buf) (real->bytes n 8 buf))))
