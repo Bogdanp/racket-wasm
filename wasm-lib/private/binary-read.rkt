@@ -6,7 +6,10 @@
 
 (provide
  current-custom-section-reader
- read-wasm)
+ read-wasm
+ read-name!
+ read-u32!
+ skip-len!)
 
 (define (oops! in message . args)
   (define-values (_line _col pos)
