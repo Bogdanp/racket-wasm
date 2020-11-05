@@ -530,15 +530,12 @@
              [s 0])
     (define b (read-byte! what buf in))
     (define new-n (bitwise-ior n (arithmetic-shift (bitwise-and b #x7F) s)))
+    (define new-shift (+ s 7))
     (cond
-      [(zero? (bitwise-and b #x80))
-       (cond
-         [(>= s bits) new-n]
-         [(zero? (bitwise-and b #x40)) new-n]
-         [else (bitwise-ior new-n (arithmetic-shift (bitwise-not 0) s))])]
-
-      [else
-       (loop new-n (+ s 7))])))
+      [(> (bitwise-and b #x80) 0) (loop new-n new-shift)]
+      [(>= new-shift bits) new-n]
+      [(zero? (bitwise-and b #x40)) new-n]
+      [else (bitwise-ior new-n (arithmetic-shift -1 new-shift))])))
 
 (define (read-u32! in buf)
   (define n (read-uint! in buf))
