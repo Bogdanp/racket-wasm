@@ -195,63 +195,93 @@
         ;; Memory Instructions
         [(or (instr:i32.load     (memarg _ offset))
              (instr:i32.load8_s  (memarg _ offset))
-             (instr:i32.load16_s (memarg _ offset))
+             (instr:i32.load16_s (memarg _ offset)))
+         (smatch [addr]
+           (define ea (+ addr offset))
+           (define size
+             (match instr
+               [(instr:i32.load     _) 4]
+               [(instr:i32.load8_s  _) 1]
+               [(instr:i32.load16_s _) 2]))
+           (memory-load! memory buf ea size)
+           (bytes->i32 buf size))]
+
+        [(or (instr:i32.load8_u  (memarg _ offset))
+             (instr:i32.load16_u (memarg _ offset)))
+         (smatch [addr]
+           (define ea (+ addr offset))
+           (define size
+             (match instr
+               [(instr:i32.load8_u  _) 1]
+               [(instr:i32.load16_u _) 2]))
+           (memory-load! memory buf ea size)
+           (bytes->u32 buf size))]
+
+        [(or (instr:i64.load     (memarg _ offset))
              (instr:i64.load8_s  (memarg _ offset))
              (instr:i64.load16_s (memarg _ offset))
              (instr:i64.load32_s (memarg _ offset)))
          (smatch [addr]
            (define ea (+ addr offset))
+           (define size
+             (match instr
+               [(instr:i64.load     _) 8]
+               [(instr:i64.load8_s  _) 1]
+               [(instr:i64.load16_s _) 2]
+               [(instr:i64.load32_s _) 4]))
+           (memory-load! memory buf ea size)
+           (bytes->i64 buf size))]
+
+        [(or (instr:i64.load8_u  (memarg _ offset))
+             (instr:i64.load16_u (memarg _ offset))
+             (instr:i64.load32_u (memarg _ offset)))
+         (smatch [addr]
+           (define ea (+ addr offset))
+           (define size
+             (match instr
+               [(instr:i64.load8_u  _) 1]
+               [(instr:i64.load16_u _) 2]
+               [(instr:i64.load32_u _) 4]))
+           (memory-load! memory buf ea size)
+           (bytes->u64 buf size))]
+
+        [(instr:f32.load (memarg _ offset))
+         (smatch [addr]
+           (define ea (+ addr offset))
            (memory-load! memory buf ea 4)
-           (bytes->i32 buf))]
+           (bytes->f32 buf))]
 
-        [(instr:i64.load8_u (memarg _ offset))
-         (smatch [addr]
-           (define ea (+ addr offset))
-           (memory-load! memory buf ea 1)
-           (bytes->u8 buf))]
-
-        [(instr:i64.load16_u (memarg _ offset))
-         (smatch [addr]
-           (define ea (+ addr offset))
-           (memory-load! memory buf ea 2)
-           (bytes->u16 buf))]
-
-        [(instr:i64.load32_u (memarg _ offset))
-         (smatch [addr]
-           (define ea (+ addr offset))
-           (memory-load! memory buf ea 4)
-           (bytes->u64 buf))]
-
-        [(instr:i64.load (memarg _ offset))
+        [(instr:f64.load (memarg _ offset))
          (smatch [addr]
            (define ea (+ addr offset))
            (memory-load! memory buf ea 8)
-           (bytes->i64 buf))]
+           (bytes->f64 buf))]
 
-        [(instr:i32.store (memarg _ offset))
+        [(or (instr:i32.store   (memarg _ offset))
+             (instr:i32.store8  (memarg _ offset))
+             (instr:i32.store16 (memarg _ offset)))
          (sconsume [n addr]
            (define ea (+ addr offset))
-           (memory-store! memory ea (i32->bytes n buf) 4))]
+           (define size
+             (match instr
+               [(instr:i32.store   _) 4]
+               [(instr:i32.store8  _) 1]
+               [(instr:i32.store16 _) 2]))
+           (memory-store! memory ea (i32->bytes n buf) size))]
 
-        [(instr:i64.store (memarg _ offset))
+        [(or (instr:i64.store   (memarg _ offset))
+             (instr:i64.store8  (memarg _ offset))
+             (instr:i64.store16 (memarg _ offset))
+             (instr:i64.store32 (memarg _ offset)))
          (sconsume [n addr]
            (define ea (+ addr offset))
-           (memory-store! memory ea (i64->bytes n buf) 8))]
-
-        [(instr:i64.store8 (memarg _ offset))
-         (sconsume [n addr]
-           (define ea (+ addr offset))
-           (memory-store! memory ea (i64->bytes8 n buf) 1))]
-
-        [(instr:i64.store16 (memarg _ offset))
-         (sconsume [n addr]
-           (define ea (+ addr offset))
-           (memory-store! memory ea (i64->bytes16 n buf) 2))]
-
-        [(instr:i64.store32 (memarg _ offset))
-         (sconsume [n addr]
-           (define ea (+ addr offset))
-           (memory-store! memory ea (i64->bytes32 n buf) 4))]
+           (define size
+             (match instr
+               [(instr:i64.store   _) 8]
+               [(instr:i64.store8  _) 1]
+               [(instr:i64.store16 _) 2]
+               [(instr:i64.store32 _) 4]))
+           (memory-store! memory ea (i64->bytes n buf) size))]
 
         [(instr:f32.store (memarg _ offset))
          (sconsume [n addr]
@@ -335,7 +365,11 @@
         [(instr:i64.ge_u)     (smatch [b a] (ige64_u  a b buf))]
         [(instr:i64.ge_s)     (smatch [b a] (ige64_s  a b buf))]
 
-        [(instr:f32.demote_f64) (smatch [n] (fdemote64 n))]
+        [(instr:f64.eq) (smatch [b a] (feq64 a b))]
+        [(instr:f64.ne) (smatch [b a] (fne64 a b))]
+
+        [(instr:f32.demote_f64)  (smatch [n] (fdemote64 n))]
+        [(instr:f64.promote_f32) (smatch [n] (fpromote32 n))]
 
         [(instr:i64.extend_i32_u)
          stack]

@@ -127,8 +127,9 @@
 (module+ i32
   (provide (all-defined-out))
   (begin-encourage-inline
-    (define (i32->bytes n buf) (integer->bytes n 4 buf))
-    (define (bytes->i32 buf)   (bytes->integer buf 4))
+    (define (i32->bytes n buf)        (integer->bytes n 4 buf))
+    (define (bytes->i32 buf [size 4]) (bytes->integer buf size))
+    (define (bytes->u32 buf [size 4]) (u32->s32 (bytes->integer buf size #f)))
 
     (define (iadd32 a b)       (i32remainder (i32+ a b) i32max))
     (define (isub32 a b)       (i32remainder (i32+ (i32- a b) i32max) i32max))
@@ -162,15 +163,9 @@
 (module+ i64
   (provide (all-defined-out))
   (begin-encourage-inline
-    (define (i64->bytes n buf)   (integer->bytes n 8 buf))
-    (define (i64->bytes8  n buf) (integer->bytes (remainder n i8max)  1 buf))
-    (define (i64->bytes16 n buf) (integer->bytes (remainder n i16max) 2 buf))
-    (define (i64->bytes32 n buf) (integer->bytes (remainder n i32max) 4 buf))
-    (define (bytes->i64 buf)     (bytes->integer buf 8))
-    (define (bytes->u8  buf)     (u32->s32 (bytes->integer buf 1 #f)))
-    (define (bytes->u16 buf)     (u32->s32 (bytes->integer buf 2 #f)))
-    (define (bytes->u32 buf)     (u32->s32 (bytes->integer buf 4 #f)))
-    (define (bytes->u64 buf)     (u64->s64 (bytes->integer buf 8 #f)))
+    (define (i64->bytes n buf)        (integer->bytes n 8 buf))
+    (define (bytes->i64 buf [size 8]) (bytes->integer buf size))
+    (define (bytes->u64 buf [size 8]) (u64->s64 (bytes->integer buf size #f)))
 
     (define (iadd64 a b)       (remainder (+ a b) i64max))
     (define (isub64 a b)       (remainder (+ (- a b) i64max) i64max))
@@ -204,10 +199,17 @@
   (provide (all-defined-out))
   (begin-encourage-inline
     (define (f32->bytes n buf) (real->bytes n 4 buf))
+    (define (bytes->f32 buf)   (bytes->real buf 4))
 
     (define (fdemote64 n) n)))
 
 (module+ f64
   (provide (all-defined-out))
   (begin-encourage-inline
-    (define (f64->bytes n buf) (real->bytes n 8 buf))))
+    (define (f64->bytes n buf) (real->bytes n 8 buf))
+    (define (bytes->f64 buf)   (bytes->real buf 8))
+
+    (define (feq64 a b) (if (= a b) 1 0))
+    (define (fne64 a b) (if (= a b) 0 1))
+
+    (define (fpromote32 n) n)))
