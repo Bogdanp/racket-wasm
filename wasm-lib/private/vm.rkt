@@ -168,8 +168,8 @@
 
         [(instr:select)
          (match stack
-           [(list* 0 _ v st) (cons v st)]
-           [(list* _ v _ st) (cons v st)])]
+           [(list* 0 v2 _  st) (cons v2 st)]
+           [(list* _ _  v1 st) (cons v1 st)])]
 
         ;; Variable Instructions
         [(instr:local.get idx)

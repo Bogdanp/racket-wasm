@@ -163,7 +163,7 @@
   (provide (all-defined-out))
   (begin-encourage-inline
     (define (i64->bytes n buf)   (integer->bytes n 8 buf))
-    (define (i64->bytes8  n buf) (integer->bytes (remainder n i8max) 1 buf))
+    (define (i64->bytes8  n buf) (integer->bytes (remainder n i8max)  1 buf))
     (define (i64->bytes16 n buf) (integer->bytes (remainder n i16max) 2 buf))
     (define (i64->bytes32 n buf) (integer->bytes (remainder n i32max) 4 buf))
     (define (bytes->i64 buf)     (bytes->integer buf 8))
