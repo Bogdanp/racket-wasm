@@ -9,7 +9,8 @@
          racket/port
          racket/vector
          threading
-         "core.rkt")
+         "core.rkt"
+         "location.rkt")
 
 (provide
  mod-valid?)
@@ -39,6 +40,11 @@
         (match (exn:fail:validation-who e)
           [(list whos ...) whos]
           [who (list who)]))
+      (when (instruction? (car whos))
+        (match (instruction-loc (car whos))
+          [(loc source pos)
+           (printf "  in: ~a~n" source)
+           (printf "  offset: ~a (0x~a)~n" pos (number->string pos 16))]))
       (printf "  at: ~v" (car whos))
       (for ([who (in-list (cdr whos))])
         (newline)
@@ -184,23 +190,23 @@
   (match instr
     ;; Control Instructions
     ;; [t1*] [t2*]
-    [(instr:unreachable)
+    [(instr:unreachable _)
      (ctx-return c)]
 
     ;; [t1* t*] -> [t2*]
-    [(instr:br lbl)
+    [(instr:br _ lbl)
      (define ft (label-ref c who lbl))
      (apply keep who stack (functype-results ft))]
 
     ;; [t* i32] -> [t*]
-    [(instr:br_if lbl)
+    [(instr:br_if _ lbl)
      (define ft (label-ref c who lbl))
      (define s (pop who stack i32))
      (begin0 s
        (check-types who (functype-results ft) s))]
 
     ;; [t1* t* i32] -> [t2*]
-    [(instr:br_table tbl lN)
+    [(instr:br_table _ tbl lN)
      (define ft (label-ref c who lN))
      (for ([l (in-vector tbl)])
        (check-types who
@@ -209,44 +215,44 @@
      (apply keep who (pop who stack i32) (functype-results ft))]
 
     ;; [t1* t*] -> [t2*]
-    [(instr:return)
+    [(instr:return _)
      (apply keep who stack (ctx-return c))]
 
     ;; [t1*] -> [t2*]
-    [(instr:block (typeidx idx) block-code)
+    [(instr:block _ (typeidx idx) block-code)
      (validate-instr c who stack (instr:block (type-ref c who idx) block-code))]
 
     ;; [t1*] -> [t2*]
-    [(instr:block ft block-code)
+    [(instr:block _ ft block-code)
      (when block-code (validate-block c who ft block-code))
      (apply push stack (functype-results ft))]
 
     ;; [t1*] -> [t2*]
-    [(instr:loop (typeidx idx) block-code)
+    [(instr:loop _ (typeidx idx) block-code)
      (validate-instr c who stack (instr:loop (type-ref c who idx) block-code))]
 
     ;; [t1*] -> [t2*]
-    [(instr:loop ft block-code)
+    [(instr:loop _ ft block-code)
      (when block-code (validate-block c who ft block-code))
      (apply push stack (functype-results ft))]
 
     ;; [t1* i32] -> [t2*]
-    [(instr:if (typeidx idx) then-code else-code)
+    [(instr:if _ (typeidx idx) then-code else-code)
      (validate-instr c who stack (instr:if (type-ref c who idx) then-code else-code))]
 
     ;; [t1* i32] -> [t2*]
-    [(instr:if ft then-code else-code)
+    [(instr:if _ ft then-code else-code)
      (define s (pop who stack i32))
      (when then-code (validate-block c who ft then-code))
      (when else-code (validate-block c who ft else-code))
      (apply push s (functype-results ft))]
 
     ;; [t1*] -> [t2*]
-    [(instr:call idx)
+    [(instr:call _ idx)
      (validate-type who stack (func-ref c who idx))]
 
     ;; [t1* i32] -> [t2*]
-    [(instr:call_indirect idx tblidx)
+    [(instr:call_indirect _ idx tblidx)
      (match (table-ref c who tblidx)
        [(tabletype (? funcref?) _)
         (validate-type who (pop who stack i32) (type-ref c who idx))]
@@ -255,22 +261,22 @@
         (raise-validation-error who "table elemtype is not funcref")])]
 
     ;; Variable Instructions
-    [(instr:local.get idx)
+    [(instr:local.get _ idx)
      (push stack (local-ref c who idx))]
 
-    [(instr:local.set idx)
+    [(instr:local.set _ idx)
      (pop who stack (local-ref c who idx))]
 
-    [(instr:local.tee idx)
+    [(instr:local.tee _ idx)
      (define vt (local-ref c who idx))
      (push (pop who stack vt) vt)]
 
-    [(instr:global.get idx)
+    [(instr:global.get _ idx)
      (define g (global-ref c who idx))
      (define gt (global-type g))
      (push stack (globaltype-valtype gt))]
 
-    [(instr:global.set idx)
+    [(instr:global.set _ idx)
      (define g (global-ref c who idx))
      (define gt (global-type g))
      (unless (globaltype-mutable? gt)
@@ -278,50 +284,50 @@
      (pop who stack (globaltype-valtype gt))]
 
     ;; Memory Instructions
-    [(or (instr:i32.load8_s arg)
-         (instr:i32.load8_u arg)
-         (instr:i64.load8_s arg)
-         (instr:i64.load8_u arg)
-         (instr:i32.store8 arg)
-         (instr:i64.store8 arg))
+    [(or (instr:i32.load8_s _ arg)
+         (instr:i32.load8_u _ arg)
+         (instr:i64.load8_s _ arg)
+         (instr:i64.load8_u _ arg)
+         (instr:i32.store8  _ arg)
+         (instr:i64.store8  _ arg))
      (memory-ref c who 0)
      (check-alignment who arg 8)
      (validate-type who stack (instruction-type instr))]
 
-    [(or (instr:i32.load16_s arg)
-         (instr:i32.load16_u arg)
-         (instr:i64.load16_s arg)
-         (instr:i64.load16_u arg)
-         (instr:i32.store16 arg)
-         (instr:i64.store16 arg))
+    [(or (instr:i32.load16_s _ arg)
+         (instr:i32.load16_u _ arg)
+         (instr:i64.load16_s _ arg)
+         (instr:i64.load16_u _ arg)
+         (instr:i32.store16  _ arg)
+         (instr:i64.store16  _ arg))
      (memory-ref c who 0)
      (check-alignment who arg 16)
      (validate-type who stack (instruction-type instr))]
 
-    [(or (instr:i32.load arg)
-         (instr:f32.load arg)
-         (instr:i64.load32_s arg)
-         (instr:i64.load32_u arg)
-         (instr:i32.store arg)
-         (instr:f32.store arg)
-         (instr:i64.store32 arg))
+    [(or (instr:i32.load     _ arg)
+         (instr:f32.load     _ arg)
+         (instr:i64.load32_s _ arg)
+         (instr:i64.load32_u _ arg)
+         (instr:i32.store    _ arg)
+         (instr:f32.store    _ arg)
+         (instr:i64.store32  _ arg))
      (memory-ref c who 0)
      (check-alignment who arg 32)
      (validate-type who stack (instruction-type instr))]
 
-    [(or (instr:i64.load arg)
-         (instr:f64.load arg)
-         (instr:i64.store arg)
-         (instr:f64.store arg))
+    [(or (instr:i64.load  _ arg)
+         (instr:f64.load  _ arg)
+         (instr:i64.store _ arg)
+         (instr:f64.store _ arg))
      (memory-ref c who 0)
      (check-alignment who arg 64)
      (validate-type who stack (instruction-type instr))]
 
-    [(instr:memory.size idx)
+    [(instr:memory.size _ idx)
      (memory-ref c who idx)
      (validate-type who stack (instruction-type instr))]
 
-    [(instr:memory.grow idx)
+    [(instr:memory.grow _ idx)
      (memory-ref c who idx)
      (validate-type who stack (instruction-type instr))]
 
@@ -395,12 +401,12 @@
 
 (define (instr-constant? c i)
   (match i
-    [(instr:global.get idx)
+    [(instr:global.get _ idx)
      (not (globaltype-mutable? (global-ref c i idx)))]
-    [(instr:i32.const _) #t]
-    [(instr:f32.const _) #t]
-    [(instr:i64.const _) #t]
-    [(instr:f64.const _) #t]
+    [(instr:i32.const _ _) #t]
+    [(instr:f32.const _ _) #t]
+    [(instr:i64.const _ _) #t]
+    [(instr:f64.const _ _) #t]
     [_ #f]))
 
 

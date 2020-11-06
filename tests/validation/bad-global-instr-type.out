@@ -1,1 +1,1 @@
-(#f . "global definition instructions must be constant\n  at: (global (globaltype i32 #f) (vector (instr:drop)))")
+(#f . "global definition instructions must be constant\n  at: (global (globaltype i32 #f) (vector (instr:drop #<loc>)))")

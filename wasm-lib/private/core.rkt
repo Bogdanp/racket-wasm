@@ -107,7 +107,12 @@
 ;; instructions ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (provide
+ instruction?
+ instruction-loc
  instruction-type)
+
+(struct instruction (loc)
+  #:transparent)
 
 (begin-for-syntax
   (define (raise-instruction-literal-error stx)
@@ -122,8 +127,8 @@
 (define-instruction-literals instruction-literals
   [: -> forall])
 
-(define-generics instruction
-  (instruction-type instruction))
+(define-generics typed
+  (instruction-type typed))
 
 (define-syntax-parser define-instruction
   #:literal-sets (instruction-literals)
@@ -133,10 +138,10 @@
    #:with id (format-id #'name "instr:~a" #'name)
    #'(begin
        (provide (struct-out id))
-       (struct id (~? (f ...) ())
+       (struct id instruction (~? (f ...) ())
          #:transparent
          #:mutable
-         #:methods gen:instruction
+         #:methods gen:typed
          [(define (instruction-type _)
             (~? (begin (define-typevar v) ...))
             (functype (~? (reverse (list t ...)) null)

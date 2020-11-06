@@ -1,1 +1,1 @@
-(#f . "arity error\n  expected: [i32]\n  found: []\n  at: (instr:call 0)\n  within: (funcidx 0)")
+(#f . "arity error\n  expected: [i32]\n  found: []\n  in: bad-import.wasm\n  offset: 45 (0x2d)\n  at: (instr:call #<loc> 0)\n  within: (funcidx 0)")
