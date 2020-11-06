@@ -27,8 +27,8 @@
 
 (define current-custom-section-reader
   (make-parameter
-   (lambda (len in buf)
-     (skip-n-bytes! "custom section" len in buf)
+   (lambda (buf len in)
+     (skip-n-bytes! "custom section" buf len in)
      (custom-section #f))))
 
 (define (read-wasm in [buf (make-bytes (* 64 1024))])
@@ -41,94 +41,94 @@
   (unless (bytes=? version VERSION)
     (oops! in "unsupported version: ~a" version))
   (let loop ([sections (make-mod-hash)])
-    (match (read-section! in buf)
+    (match (read-section! buf in)
       [(? eof-object?) (mod-hash->mod sections)]
       [section (loop (with-handlers ([exn:fail? (lambda (e)
                                                   (oops! in "~a" (exn-message e)))])
                        (mod-hash-add-section sections section)))])))
 
-(define (read-section! in buf)
+(define (read-section! buf in)
   (match (read-byte in)
     [(? eof-object?) eof]
-    [0 (read-custom-section! in buf)]
-    [1 (read-type-section! in buf)]
-    [2 (read-import-section! in buf)]
-    [3 (read-function-section! in buf)]
-    [4 (read-table-section! in buf)]
-    [5 (read-memory-section! in buf)]
-    [6 (read-global-section! in buf)]
-    [7 (read-export-section! in buf)]
-    [8 (read-start-section! in buf)]
-    [9 (read-element-section! in buf)]
-    [10 (read-code-section! in buf)]
-    [11 (read-data-section! in buf)]
+    [0 (read-custom-section! buf in)]
+    [1 (read-type-section! buf in)]
+    [2 (read-import-section! buf in)]
+    [3 (read-function-section! buf in)]
+    [4 (read-table-section! buf in)]
+    [5 (read-memory-section! buf in)]
+    [6 (read-global-section! buf in)]
+    [7 (read-export-section! buf in)]
+    [8 (read-start-section! buf in)]
+    [9 (read-element-section! buf in)]
+    [10 (read-code-section! buf in)]
+    [11 (read-data-section! buf in)]
     [idx (oops! in "unexpected section idx ~a" idx)]))
 
-(define (read-custom-section! in buf)
-  (define len (read-u32! in buf))
-  ((current-custom-section-reader) len in buf))
+(define (read-custom-section! buf in)
+  (define len (read-u32! buf in))
+  ((current-custom-section-reader) buf len in))
 
-(define (read-type-section! in buf)
-  (skip-len! in buf)
-  (type-section (read-vectorof! read-functype! in buf)))
+(define (read-type-section! buf in)
+  (skip-len! buf in)
+  (type-section (read-vectorof! read-functype! buf in)))
 
-(define (read-import-section! in buf)
-  (skip-len! in buf)
-  (import-section (read-vectorof! read-import! in buf)))
+(define (read-import-section! buf in)
+  (skip-len! buf in)
+  (import-section (read-vectorof! read-import! buf in)))
 
-(define (read-function-section! in buf)
-  (skip-len! in buf)
-  (function-section (read-vectorof! read-u32! in buf)))
+(define (read-function-section! buf in)
+  (skip-len! buf in)
+  (function-section (read-vectorof! read-u32! buf in)))
 
-(define (read-table-section! in buf)
-  (skip-len! in buf)
-  (table-section (read-vectorof! read-tabletype! in buf)))
+(define (read-table-section! buf in)
+  (skip-len! buf in)
+  (table-section (read-vectorof! read-tabletype! buf in)))
 
-(define (read-memory-section! in buf)
-  (skip-len! in buf)
-  (memory-section (read-vectorof! read-memtype! in buf)))
+(define (read-memory-section! buf in)
+  (skip-len! buf in)
+  (memory-section (read-vectorof! read-memtype! buf in)))
 
-(define (read-global-section! in buf)
-  (skip-len! in buf)
-  (global-section (read-vectorof! read-global! in buf)))
+(define (read-global-section! buf in)
+  (skip-len! buf in)
+  (global-section (read-vectorof! read-global! buf in)))
 
-(define (read-export-section! in buf)
-  (skip-len! in buf)
-  (export-section (read-vectorof! read-export! in buf)))
+(define (read-export-section! buf in)
+  (skip-len! buf in)
+  (export-section (read-vectorof! read-export! buf in)))
 
-(define (read-start-section! in buf)
-  (skip-len! in buf)
-  (start-section (funcidx (read-u32! in buf))))
+(define (read-start-section! buf in)
+  (skip-len! buf in)
+  (start-section (funcidx (read-u32! buf in))))
 
-(define (read-element-section! in buf)
-  (skip-len! in buf)
-  (element-section (read-vectorof! read-elem! in buf)))
+(define (read-element-section! buf in)
+  (skip-len! buf in)
+  (element-section (read-vectorof! read-elem! buf in)))
 
-(define (read-code-section! in buf)
-  (skip-len! in buf)
-  (code-section (read-vectorof! read-code! in buf)))
+(define (read-code-section! buf in)
+  (skip-len! buf in)
+  (code-section (read-vectorof! read-code! buf in)))
 
-(define (read-data-section! in buf)
-  (skip-len! in buf)
-  (data-section (read-vectorof! read-data! in buf)))
+(define (read-data-section! buf in)
+  (skip-len! buf in)
+  (data-section (read-vectorof! read-data! buf in)))
 
-(define (read-name! in buf)
-  (define len (read-u32! in buf))
+(define (read-name! buf in)
+  (define len (read-u32! buf in))
   (read-n-bytes! "name" buf len in)
   (bytes->string/utf-8 buf #f 0 len))
 
-(define (read-code! in buf)
-  (skip-len! in buf)
-  (define localss (read-vectorof! read-locals! in buf))
+(define (read-code! buf in)
+  (skip-len! buf in)
+  (define localss (read-vectorof! read-locals! buf in))
   (define-values (expr _)
-    (read-expr! in buf))
+    (read-expr! buf in))
   (code localss expr))
 
-(define (read-locals! in buf)
-  (locals (read-u32! in buf)
-          (read-valtype! in buf)))
+(define (read-locals! buf in)
+  (locals (read-u32! buf in)
+          (read-valtype! buf in)))
 
-(define (read-expr! in buf [ender? (lambda (b)
+(define (read-expr! buf in [ender? (lambda (b)
                                      (= b #x0B))])
   (let loop ([instrs null])
     (define b (read-byte! "exprt" buf in))
@@ -137,73 +137,73 @@
         ;; Control instructions
         [#x00 (instr:unreachable)]
         [#x01 (instr:nop)]
-        [#x02 (let-values ([(type) (read-blocktype! in buf)]
-                           [(code _) (read-expr! in buf)])
+        [#x02 (let-values ([(type) (read-blocktype! buf in)]
+                           [(code _) (read-expr! buf in)])
                 (instr:block type code))]
-        [#x03 (let-values ([(type) (read-blocktype! in buf)]
-                           [(code _) (read-expr! in buf)])
+        [#x03 (let-values ([(type) (read-blocktype! buf in)]
+                           [(code _) (read-expr! buf in)])
                 (instr:loop type code))]
-        [#x04 (let-values ([(type) (read-blocktype! in buf)]
-                           [(then-code end) (read-expr! in buf (lambda (opcode)
+        [#x04 (let-values ([(type) (read-blocktype! buf in)]
+                           [(then-code end) (read-expr! buf in (lambda (opcode)
                                                                  (or (= opcode #x05)
                                                                      (= opcode #x0B))))])
                 (instr:if type then-code (and (= end #x05)
-                                              (let-values ([(else-code _) (read-expr! in buf)])
+                                              (let-values ([(else-code _) (read-expr! buf in)])
                                                 else-code))))]
-        [#x0C (instr:br (read-u32! in buf))]
-        [#x0D (instr:br_if (read-u32! in buf))]
+        [#x0C (instr:br (read-u32! buf in))]
+        [#x0D (instr:br_if (read-u32! buf in))]
         [#x0E (instr:br_table
-               (read-vectorof! read-u32! in buf)
-               (read-u32! in buf))]
+               (read-vectorof! read-u32! buf in)
+               (read-u32! buf in))]
         [#x0F (instr:return)]
-        [#x10 (instr:call (read-u32! in buf))]
+        [#x10 (instr:call (read-u32! buf in))]
         [#x11 (instr:call_indirect
-               (read-u32! in buf)
-               (read-u32! in buf))]
+               (read-u32! buf in)
+               (read-u32! buf in))]
 
         ;; Parametric instructions
         [#x1A (instr:drop)]
         [#x1B (instr:select)]
 
         ;; Variable instructions
-        [#x20 (instr:local.get (read-u32! in buf))]
-        [#x21 (instr:local.set (read-u32! in buf))]
-        [#x22 (instr:local.tee (read-u32! in buf))]
-        [#x23 (instr:global.get (read-u32! in buf))]
-        [#x24 (instr:global.set (read-u32! in buf))]
+        [#x20 (instr:local.get (read-u32! buf in))]
+        [#x21 (instr:local.set (read-u32! buf in))]
+        [#x22 (instr:local.tee (read-u32! buf in))]
+        [#x23 (instr:global.get (read-u32! buf in))]
+        [#x24 (instr:global.set (read-u32! buf in))]
 
         ;; Memory instructions
-        [#x28 (instr:i32.load (read-memarg! in buf))]
-        [#x29 (instr:i64.load (read-memarg! in buf))]
-        [#x2A (instr:f32.load (read-memarg! in buf))]
-        [#x2B (instr:f64.load (read-memarg! in buf))]
-        [#x2C (instr:i32.load8_s (read-memarg! in buf))]
-        [#x2D (instr:i32.load8_u (read-memarg! in buf))]
-        [#x2E (instr:i32.load16_s (read-memarg! in buf))]
-        [#x2F (instr:i32.load16_u (read-memarg! in buf))]
-        [#x30 (instr:i64.load8_s (read-memarg! in buf))]
-        [#x31 (instr:i64.load8_u (read-memarg! in buf))]
-        [#x32 (instr:i64.load16_s (read-memarg! in buf))]
-        [#x33 (instr:i64.load16_u (read-memarg! in buf))]
-        [#x34 (instr:i64.load32_s (read-memarg! in buf))]
-        [#x35 (instr:i64.load32_u (read-memarg! in buf))]
-        [#x36 (instr:i32.store (read-memarg! in buf))]
-        [#x37 (instr:i64.store (read-memarg! in buf))]
-        [#x38 (instr:f32.store (read-memarg! in buf))]
-        [#x39 (instr:f64.store (read-memarg! in buf))]
-        [#x3A (instr:i32.store8 (read-memarg! in buf))]
-        [#x3B (instr:i32.store16 (read-memarg! in buf))]
-        [#x3C (instr:i64.store8 (read-memarg! in buf))]
-        [#x3D (instr:i64.store16 (read-memarg! in buf))]
-        [#x3E (instr:i64.store32 (read-memarg! in buf))]
-        [#x3F (instr:memory.size (read-u32! in buf))]
-        [#x40 (instr:memory.grow (read-u32! in buf))]
+        [#x28 (instr:i32.load (read-memarg! buf in))]
+        [#x29 (instr:i64.load (read-memarg! buf in))]
+        [#x2A (instr:f32.load (read-memarg! buf in))]
+        [#x2B (instr:f64.load (read-memarg! buf in))]
+        [#x2C (instr:i32.load8_s (read-memarg! buf in))]
+        [#x2D (instr:i32.load8_u (read-memarg! buf in))]
+        [#x2E (instr:i32.load16_s (read-memarg! buf in))]
+        [#x2F (instr:i32.load16_u (read-memarg! buf in))]
+        [#x30 (instr:i64.load8_s (read-memarg! buf in))]
+        [#x31 (instr:i64.load8_u (read-memarg! buf in))]
+        [#x32 (instr:i64.load16_s (read-memarg! buf in))]
+        [#x33 (instr:i64.load16_u (read-memarg! buf in))]
+        [#x34 (instr:i64.load32_s (read-memarg! buf in))]
+        [#x35 (instr:i64.load32_u (read-memarg! buf in))]
+        [#x36 (instr:i32.store (read-memarg! buf in))]
+        [#x37 (instr:i64.store (read-memarg! buf in))]
+        [#x38 (instr:f32.store (read-memarg! buf in))]
+        [#x39 (instr:f64.store (read-memarg! buf in))]
+        [#x3A (instr:i32.store8 (read-memarg! buf in))]
+        [#x3B (instr:i32.store16 (read-memarg! buf in))]
+        [#x3C (instr:i64.store8 (read-memarg! buf in))]
+        [#x3D (instr:i64.store16 (read-memarg! buf in))]
+        [#x3E (instr:i64.store32 (read-memarg! buf in))]
+        [#x3F (instr:memory.size (read-u32! buf in))]
+        [#x40 (instr:memory.grow (read-u32! buf in))]
 
         ;; Numeric instructions
-        [#x41 (instr:i32.const (read-i32! in buf))]
-        [#x42 (instr:i64.const (read-i64! in buf))]
-        [#x43 (instr:f32.const (read-f32! in buf))]
-        [#x44 (instr:f64.const (read-f64! in buf))]
+        [#x41 (instr:i32.const (read-i32! buf in))]
+        [#x42 (instr:i64.const (read-i64! buf in))]
+        [#x43 (instr:f32.const (read-f32! buf in))]
+        [#x44 (instr:f64.const (read-f64! buf in))]
 
         [#x45 (instr:i32.eqz)]
         [#x46 (instr:i32.eq)]
@@ -343,7 +343,7 @@
         [#xC3 (instr:i64.extend16_s)]
         [#xC4 (instr:i64.extend32_s)]
 
-        [#xFC (match (read-u32! in buf)
+        [#xFC (match (read-u32! buf in)
                 [0 (instr:i32.trunc_sat_f32_s)]
                 [1 (instr:i32.trunc_sat_f32_u)]
                 [2 (instr:i32.trunc_sat_f64_s)]
@@ -361,100 +361,100 @@
         (values (list->vector (reverse instrs)) b)
         (loop (cons instr instrs)))))
 
-(define (read-blocktype! in buf)
+(define (read-blocktype! buf in)
   (case (peek-byte in)
     [(#x40)
      (begin0 (functype null null)
        (read-byte in))]
 
     [(#x7F #x7E #x7D #x7C)
-     (functype null (list (read-valtype! in buf)))]
+     (functype null (list (read-valtype! buf in)))]
 
     [else
-     (typeidx (read-sint! 33 in buf))]))
+     (typeidx (read-sint! buf 33 in))]))
 
-(define (read-memarg! in buf)
-  (memarg (read-u32! in buf)
-          (read-u32! in buf)))
+(define (read-memarg! buf in)
+  (memarg (read-u32! buf in)
+          (read-u32! buf in)))
 
-(define (read-data! in buf)
-  (define idx (read-u32! in buf))
+(define (read-data! buf in)
+  (define idx (read-u32! buf in))
   (define-values (code _)
-    (read-expr! in buf))
-  (data idx code (read-bytevector! in buf)))
+    (read-expr! buf in))
+  (data idx code (read-bytevector! buf in)))
 
-(define (read-import! in buf)
-  (import (read-name! in buf)
-          (read-name! in buf)
-          (read-importdesc! in buf)))
+(define (read-import! buf in)
+  (import (read-name! buf in)
+          (read-name! buf in)
+          (read-importdesc! buf in)))
 
-(define (read-export! in buf)
-  (export (read-name! in buf)
-          (read-exportdesc! in buf)))
+(define (read-export! buf in)
+  (export (read-name! buf in)
+          (read-exportdesc! buf in)))
 
-(define (read-global! in buf)
-  (define type (read-globaltype! in buf))
+(define (read-global! buf in)
+  (define type (read-globaltype! buf in))
   (define-values (code _)
-    (read-expr! in buf))
+    (read-expr! buf in))
   (global type code))
 
-(define (read-importdesc! in buf)
+(define (read-importdesc! buf in)
   (match (read-byte! "importdesc" buf in)
-    [#x00 (typeidx (read-u32! in buf))]
-    [#x01 (read-tabletype! in buf)]
-    [#x02 (read-memtype! in buf)]
-    [#x03 (read-globaltype! in buf)]
+    [#x00 (typeidx (read-u32! buf in))]
+    [#x01 (read-tabletype! buf in)]
+    [#x02 (read-memtype! buf in)]
+    [#x03 (read-globaltype! buf in)]
     [b (oops! in "unexpected value while reading importdesc: ~s" b)]))
 
-(define (read-exportdesc! in buf)
+(define (read-exportdesc! buf in)
   (match (read-byte! "exportdesc" buf in)
-    [#x00 (read-funcidx! in buf)]
-    [#x01 (read-tableidx! in buf)]
-    [#x02 (read-memidx! in buf)]
-    [#x03 (read-globalidx! in buf)]
+    [#x00 (read-funcidx! buf in)]
+    [#x01 (read-tableidx! buf in)]
+    [#x02 (read-memidx! buf in)]
+    [#x03 (read-globalidx! buf in)]
     [b (oops! in "unexpected value while reading exportdesc: ~s" b)]))
 
-(define (read-elem! in buf)
-  (define idx (read-u32! in buf))
+(define (read-elem! buf in)
+  (define idx (read-u32! buf in))
   (define-values (code _)
-    (read-expr! in buf))
-  (element idx code (read-vectorof! read-funcidx! in buf)))
+    (read-expr! buf in))
+  (element idx code (read-vectorof! read-funcidx! buf in)))
 
-(define (read-tableidx! in buf)
-  (tableidx (read-u32! in buf)))
+(define (read-tableidx! buf in)
+  (tableidx (read-u32! buf in)))
 
-(define (read-funcidx! in buf)
-  (funcidx (read-u32! in buf)))
+(define (read-funcidx! buf in)
+  (funcidx (read-u32! buf in)))
 
-(define (read-memidx! in buf)
-  (memidx (read-u32! in buf)))
+(define (read-memidx! buf in)
+  (memidx (read-u32! buf in)))
 
-(define (read-globalidx! in buf)
-  (globalidx (read-u32! in buf)))
+(define (read-globalidx! buf in)
+  (globalidx (read-u32! buf in)))
 
-(define (read-tabletype! in buf)
-  (tabletype (read-elemtype! in buf)
-             (read-limits! in buf)))
+(define (read-tabletype! buf in)
+  (tabletype (read-elemtype! buf in)
+             (read-limits! buf in)))
 
-(define (read-memtype! in buf)
-  (memtype (read-limits! in buf)))
+(define (read-memtype! buf in)
+  (memtype (read-limits! buf in)))
 
-(define (read-globaltype! in buf)
-  (globaltype (read-valtype! in buf)
-              (read-mut! in buf)))
+(define (read-globaltype! buf in)
+  (globaltype (read-valtype! buf in)
+              (read-mut! buf in)))
 
-(define (read-elemtype! in buf)
+(define (read-elemtype! buf in)
   (match (read-byte! "elemtype" buf in)
     [#x70 funcref]
     [b (oops! in "unexpected value while reading elemtype: ~s" b)]))
 
-(define (read-limits! in buf)
+(define (read-limits! buf in)
   (match (read-byte! "limits" buf in)
-    [#x00 (limits (read-u32! in buf) #f)]
-    [#x01 (limits (read-u32! in buf) (read-u32! in buf))]
+    [#x00 (limits (read-u32! buf in) #f)]
+    [#x01 (limits (read-u32! buf in) (read-u32! buf in))]
     [b (oops! in "unexpected value while reading limits: ~s" b)]))
 
-(define (read-valtype! in buf)
+(define (read-valtype! buf in)
   (match (read-byte! "valtype" buf in)
     [#x7F i32]
     [#x7E i64]
@@ -462,41 +462,41 @@
     [#x7C f64]
     [b (oops! in "unexpected value while reading valtype: ~s" b)]))
 
-(define (read-mut! in buf)
+(define (read-mut! buf in)
   (match (read-byte! "mut" buf in)
     [#x00 #f]
     [#x01 #t]
     [b (oops! in "unexpected value while reading mut: ~s" b)]))
 
-(define (read-functype! in buf)
+(define (read-functype! buf in)
   (define b (read-byte! "functype" buf in))
   (unless (eqv? b #x60)
     (oops! in "unexpected value while reading functype: ~s" b))
-  (define params (read-restype! in buf))
-  (define results (read-restype! in buf))
+  (define params (read-restype! buf in))
+  (define results (read-restype! buf in))
   (functype params results))
 
-(define (read-restype! in buf)
-  (reverse (read-listof! read-valtype! in buf)))
+(define (read-restype! buf in)
+  (reverse (read-listof! read-valtype! buf in)))
 
 
 ;; core readers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-(define (skip-len! in buf)
-  (read-u32! in buf))
+(define (skip-len! buf in)
+  (read-u32! buf in))
 
-(define (read-bytevector! in buf)
-  (read-bytes (read-u32! in buf) in))
+(define (read-bytevector! buf in)
+  (read-bytes (read-u32! buf in) in))
 
-(define (read-listof! f in buf)
-  (for/list ([_ (in-range (read-u32! in buf))])
-    (f in buf)))
+(define (read-listof! f buf in)
+  (for/list ([_ (in-range (read-u32! buf in))])
+    (f buf in)))
 
-(define (read-vectorof! f in buf)
-  (for/vector ([_ (in-range (read-u32! in buf))])
-    (f in buf)))
+(define (read-vectorof! f buf in)
+  (for/vector ([_ (in-range (read-u32! buf in))])
+    (f buf in)))
 
-(define (skip-n-bytes! what n in buf)
+(define (skip-n-bytes! what buf n in)
   (let loop ([remaining n])
     (unless (zero? remaining)
       (define n-read (read-bytes! buf in 0 (min remaining (bytes-length buf))))
@@ -518,7 +518,7 @@
   (read-n-bytes! what buf 1 in)
   (bytes-ref buf 0))
 
-(define (read-uint! in buf)
+(define (read-uint! buf in)
   (let loop ([n 0]
              [s 0])
     (define b (read-byte! "unsigned integer" buf in))
@@ -527,7 +527,7 @@
       [(zero? (bitwise-and b #x80)) new-n]
       [else (loop new-n (+ s 7))])))
 
-(define (read-sint! bits in buf)
+(define (read-sint! buf bits in)
   (define what (format "signed ~abit integer" bits))
   (let loop ([n 0]
              [s 0])
@@ -540,22 +540,22 @@
       [(zero? (bitwise-and b #x40)) new-n]
       [else (bitwise-ior new-n (arithmetic-shift -1 new-shift))])))
 
-(define (read-u32! in buf)
-  (define n (read-uint! in buf))
+(define (read-u32! buf in)
+  (define n (read-uint! buf in))
   (begin0 n
     (when (> n (sub1 (expt 2 32)))
       (oops! in "unsigned 32bit integer out of bounds"))))
 
-(define (read-i32! in buf)
-  (read-sint! 32 in buf))
+(define (read-i32! buf in)
+  (read-sint! buf 32 in))
 
-(define (read-i64! in buf)
-  (read-sint! 64 in buf))
+(define (read-i64! buf in)
+  (read-sint! buf 64 in))
 
-(define (read-f32! in buf)
+(define (read-f32! buf in)
   (read-n-bytes! "f32" buf 4 in)
   (floating-point-bytes->real buf #f 0 4))
 
-(define (read-f64! in buf)
+(define (read-f64! buf in)
   (read-n-bytes! "f64" buf 8 in)
   (floating-point-bytes->real buf #f 0 8))
