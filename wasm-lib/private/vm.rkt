@@ -3,6 +3,7 @@
 (require (prefix-in ra: data/ralist)
          racket/contract
          racket/match
+         (submod racket/performance-hint begin-encourage-inline)
          racket/vector
          threading
          "core.rkt"
@@ -16,7 +17,19 @@
 (provide
  vm?
  make-vm
+ vm-logger
  vm-ref)
+
+;; Debugger hooks ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(define-logger vm)
+
+(begin-encourage-inline
+  (define (debug what data)
+    (log-message vm-logger 'debug what "" data #f)))
+
+
+;; VM ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (struct vm (mod store)
   #:transparent)
@@ -80,7 +93,7 @@
       (match stack [(list* var ... st) e ... st]))
     (define-syntax-rule (smatch (var ...) e ... eN)
       (match stack [(list* var ... st) e ... (cons eN st)]))
-    #;(printf "stack: ~s instr: ~e~n" stack instr)
+    (debug 'vm-exec (list v stack instr))
     (let retry ()
       (match instr
         ;; Control instructions
@@ -145,6 +158,7 @@
              ((ra:list-ref labels idx) stack))]
 
         [(instr:call idx)
+         (debug 'call idx)
          (define-values (type func)
            (match (vector-ref funcs idx)
              [(and (hostfunc  type _) func) (values type func)]
@@ -378,21 +392,17 @@
          (trap "~e not implemented" instr)]))))
 
 (define (take xs n)
-  (cond
-    [(zero? n) null]
-    [else (let loop ([n n]
-                     [xs xs]
-                     [ys null])
-            (cond
-              [(zero? n) (reverse ys)]
-              [else (loop (sub1 n) (cdr xs) (cons (car xs) ys))]))]))
+  (let loop ([n n]
+             [xs xs]
+             [ys null])
+    (cond
+      [(zero? n) (reverse ys)]
+      [else (loop (sub1 n) (cdr xs) (cons (car xs) ys))])))
 
 (define (split-at ys pos)
-  (for/fold ([xs null] [ys ys]
-                       #:result (values (reverse xs) ys))
+  (for/fold ([xs null] [ys ys] #:result (values (reverse xs) ys))
             ([_ (in-range pos)])
-    (values (cons (car ys) xs)
-            (cdr ys))))
+    (values (cons (car ys) xs) (cdr ys))))
 
 
 ;; store ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
