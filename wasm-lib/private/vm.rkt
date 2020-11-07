@@ -437,12 +437,11 @@
       [(import mod name (? globaltype?))
        (values functions table memory (lookup "global" mod name))])))
 
-;; FIXME: size
 (define (store-add-table s m)
   (match (mod-tables m)
     [(vector) s]
-    [(vector (tabletype _ _))
-     (struct-copy store s [table (make-vector 65535)])]))
+    [(vector (tabletype _ (limits min-size max-size)))
+     (struct-copy store s [table (make-vector (or max-size min-size))])]))
 
 (define (store-add-memory s m)
   (match (mod-memories m)
