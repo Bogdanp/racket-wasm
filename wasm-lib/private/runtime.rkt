@@ -3,6 +3,7 @@
 (require (for-syntax racket/base
                      racket/syntax)
          (submod racket/performance-hint begin-encourage-inline)
+         racket/flonum
          racket/math
          racket/unsafe/ops
          syntax/parse/define)
@@ -193,7 +194,10 @@
     (define (ile64_u a b buf)  (if (<= (s64->u64 a buf) (s64->u64 b buf)) 1 0))
     (define (ile64_s a b buf)  (if (<= a b) 1 0))
     (define (ige64_u a b buf)  (if (>= (s64->u64 a buf) (s64->u64 b buf)) 1 0))
-    (define (ige64_s a b buf)  (if (>= a b) 1 0))))
+    (define (ige64_s a b buf)  (if (>= a b) 1 0))
+
+    (define (itrunc64_u n buf) (u64->s64 (s64->u64 (inexact->exact (truncate n)) buf) buf))
+    (define (itrunc64_s n buf) (inexact->exact (truncate n)))))
 
 (module+ f32
   (provide (all-defined-out))
@@ -201,7 +205,7 @@
     (define (f32->bytes n buf) (real->bytes n 4 buf))
     (define (bytes->f32 buf)   (bytes->real buf 4))
 
-    (define (fdemote64 n) n)))
+    (define (fdemote64 n buf) n)))
 
 (module+ f64
   (provide (all-defined-out))
@@ -209,7 +213,17 @@
     (define (f64->bytes n buf) (real->bytes n 8 buf))
     (define (bytes->f64 buf)   (bytes->real buf 8))
 
-    (define (feq64 a b) (if (= a b) 1 0))
-    (define (fne64 a b) (if (= a b) 0 1))
+    (define (fadd64 a b) (fl+  a b))
+    (define (fsub64 a b) (fl-  a b))
+    (define (fmul64 a b) (fl*  a b))
+    (define (fdiv64 a b) (fl/  a b))
+    (define (feq64  a b) (if (=    a b) 1 0))
+    (define (fne64  a b) (if (=    a b) 0 1))
+    (define (flt64  a b) (if (fl<  a b) 1 0))
+    (define (fgt64  a b) (if (fl>  a b) 1 0))
+    (define (fle64  a b) (if (fl<= a b) 1 0))
+    (define (fge64  a b) (if (fl>= a b) 1 0))
 
-    (define (fpromote32 n) n)))
+    (define (fpromote32   n buf) n)
+    (define (fconvert64_u n buf) (exact->inexact (s64->u64 n)))
+    (define (fconvert64_s n buf) (exact->inexact n))))

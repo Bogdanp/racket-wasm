@@ -374,11 +374,23 @@
                    [(instr:i64.ge_u   _) (smatch [b a] (ige64_u  a b buf))]
                    [(instr:i64.ge_s   _) (smatch [b a] (ige64_s  a b buf))]
 
-                   [(instr:f64.eq _) (smatch [b a] (feq64 a b))]
-                   [(instr:f64.ne _) (smatch [b a] (fne64 a b))]
+                   [(instr:f64.add _) (smatch [b a] (fadd64 a b))]
+                   [(instr:f64.sub _) (smatch [b a] (fsub64 a b))]
+                   [(instr:f64.mul _) (smatch [b a] (fmul64 a b))]
+                   [(instr:f64.div _) (smatch [b a] (fdiv64 a b))]
+                   [(instr:f64.eq  _) (smatch [b a] (feq64  a b))]
+                   [(instr:f64.ne  _) (smatch [b a] (fne64  a b))]
+                   [(instr:f64.lt  _) (smatch [b a] (flt64  a b))]
+                   [(instr:f64.gt  _) (smatch [b a] (fgt64  a b))]
+                   [(instr:f64.le  _) (smatch [b a] (fle64  a b))]
+                   [(instr:f64.ge  _) (smatch [b a] (fge64  a b))]
 
-                   [(instr:f32.demote_f64  _) (smatch [n] (fdemote64 n))]
-                   [(instr:f64.promote_f32 _) (smatch [n] (fpromote32 n))]
+                   [(instr:i64.trunc_f64_u   _) (smatch [n] (itrunc64_u   n buf))]
+                   [(instr:i64.trunc_f64_s   _) (smatch [n] (itrunc64_s   n buf))]
+                   [(instr:f32.demote_f64    _) (smatch [n] (fdemote64    n buf))]
+                   [(instr:f64.promote_f32   _) (smatch [n] (fpromote32   n buf))]
+                   [(instr:f64.convert_i64_u _) (smatch [n] (fconvert64_u n buf))]
+                   [(instr:f64.convert_i64_s _) (smatch [n] (fconvert64_s n buf))]
 
                    [(instr:i64.extend_i32_u _)
                     stack]
