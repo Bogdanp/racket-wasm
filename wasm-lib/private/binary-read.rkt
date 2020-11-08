@@ -533,7 +533,6 @@
     (define new-shift (+ s 7))
     (cond
       [(> (bitwise-and b #x80) 0) (loop new-n new-shift)]
-      [(>= new-shift bits) new-n]
       [(zero? (bitwise-and b #x40)) new-n]
       [else (bitwise-ior new-n (arithmetic-shift -1 new-shift))])))
 
