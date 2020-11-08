@@ -160,7 +160,7 @@
                         [(and (localfunc type _) func) (values type func)]))
                     (define-values (args stack-remainder)
                       (split-at stack (length (functype-params type))))
-                    (append (vm-apply* func args) stack-remainder)]
+                    (append (vm-apply* func (reverse args)) stack-remainder)]
 
                    [(instr:call_indirect _ typeidx _)
                     (match stack
@@ -169,7 +169,7 @@
                        (define func (vector-ref table idx))
                        (define-values (args stack-remainder)
                          (split-at stack (length (functype-params type))))
-                       (append (vm-apply* func args) stack-remainder)])]
+                       (append (vm-apply* func (reverse args)) stack-remainder)])]
 
                    ;; Parameteric Instructions
                    [(instr:drop _)
