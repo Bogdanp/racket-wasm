@@ -155,14 +155,15 @@
                         ((ra:list-ref labels idx) stack))]
 
                    [(instr:call _ idx)
-                    (debug 'call idx)
                     (define-values (type func)
                       (match (vector-ref funcs idx)
                         [(and (hostfunc  type _) func) (values type func)]
                         [(and (localfunc type _) func) (values type func)]))
                     (define-values (args stack-remainder)
                       (split-at stack (length (functype-params type))))
-                    (append (vm-apply* func (reverse args)) stack-remainder)]
+                    (define args* (reverse args))
+                    (debug 'call (list idx args*))
+                    (append (vm-apply* func args*) stack-remainder)]
 
                    [(instr:call_indirect _ typeidx _)
                     (match stack
