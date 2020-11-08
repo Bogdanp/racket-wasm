@@ -207,6 +207,18 @@
     (define (f32->bytes n buf) (real->bytes n 4 buf))
     (define (bytes->f32 buf)   (bytes->real buf 4))
 
+    (define (fadd32 a b) (f32+ a b))
+    (define (fsub32 a b) (f32- a b))
+    (define (fmul32 a b) (f32* a b))
+    (define (fdiv32 a b) (f32/ a b))
+    (define (feq32  a b) (if (f32=  a b) 1 0))
+    (define (fne32  a b) (if (f32=  a b) 0 1))
+    (define (flt32  a b) (if (f32<  a b) 1 0))
+    (define (fgt32  a b) (if (f32>  a b) 1 0))
+    (define (fle32  a b) (if (f32<= a b) 1 0))
+    (define (fge32  a b) (if (f32>= a b) 1 0))
+
+
     (define (fdemote64 n buf) n)))
 
 (module+ f64
@@ -215,12 +227,12 @@
     (define (f64->bytes n buf) (real->bytes n 8 buf))
     (define (bytes->f64 buf)   (bytes->real buf 8))
 
-    (define (fadd64 a b) (fl+  a b))
-    (define (fsub64 a b) (fl-  a b))
-    (define (fmul64 a b) (fl*  a b))
-    (define (fdiv64 a b) (fl/  a b))
-    (define (feq64  a b) (if (=    a b) 1 0))
-    (define (fne64  a b) (if (=    a b) 0 1))
+    (define (fadd64 a b) (fl+ a b))
+    (define (fsub64 a b) (fl- a b))
+    (define (fmul64 a b) (fl* a b))
+    (define (fdiv64 a b) (fl/ a b))
+    (define (feq64  a b) (if (fl=  a b) 1 0))
+    (define (fne64  a b) (if (fl=  a b) 0 1))
     (define (flt64  a b) (if (fl<  a b) 1 0))
     (define (fgt64  a b) (if (fl>  a b) 1 0))
     (define (fle64  a b) (if (fl<= a b) 1 0))

@@ -377,6 +377,17 @@
                    [(instr:i64.ge_u   _) (smatch [b a] (ige64_u  a b buf))]
                    [(instr:i64.ge_s   _) (smatch [b a] (ige64_s  a b buf))]
 
+                   [(instr:f32.add _) (smatch [b a] (fadd32 a b))]
+                   [(instr:f32.sub _) (smatch [b a] (fsub32 a b))]
+                   [(instr:f32.mul _) (smatch [b a] (fmul32 a b))]
+                   [(instr:f32.div _) (smatch [b a] (fdiv32 a b))]
+                   [(instr:f32.eq  _) (smatch [b a] (feq32  a b))]
+                   [(instr:f32.ne  _) (smatch [b a] (fne32  a b))]
+                   [(instr:f32.lt  _) (smatch [b a] (flt32  a b))]
+                   [(instr:f32.gt  _) (smatch [b a] (fgt32  a b))]
+                   [(instr:f32.le  _) (smatch [b a] (fle32  a b))]
+                   [(instr:f32.ge  _) (smatch [b a] (fge32  a b))]
+
                    [(instr:f64.add _) (smatch [b a] (fadd64 a b))]
                    [(instr:f64.sub _) (smatch [b a] (fsub64 a b))]
                    [(instr:f64.mul _) (smatch [b a] (fmul64 a b))]
