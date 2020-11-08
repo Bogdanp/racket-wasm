@@ -67,7 +67,8 @@
   (match-define (vm m (store funcs table memory globals)) v)
   (define types (mod-types m))
   (define buf (make-bytes 8))
-  (let vm-apply* ([func func] [args args])
+  (let vm-apply* ([func func]
+                  [args args])
     (match func
       [(hostfunc _ f) (apply f args)]
       [(localfunc _ code)
@@ -116,10 +117,11 @@
                    [(instr:loop _ type loop-code)
                     (define result-count (length (functype-results type)))
                     (define result-stack
-                      (let loop ()
-                        (let/cc continue
-                          (vm-exec loop-code (ra:cons continue labels)))
-                        (loop)))
+                      (let/cc return
+                        (let loop ()
+                          (let/cc continue
+                            (return (vm-exec loop-code (ra:cons continue labels))))
+                          (loop))))
                     (append (take result-stack result-count) stack)]
 
                    [(instr:if _ (typeidx idx) _ _)
