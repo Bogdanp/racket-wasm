@@ -132,7 +132,7 @@
     (define (bytes->u32 buf [size 4]) (u32->s32 (bytes->integer buf size #f)))
 
     (define (iadd32 a b)       (i32remainder (i32+ a b) i32max))
-    (define (isub32 a b)       (i32remainder (i32+ (i32- a b) i32max) i32max))
+    (define (isub32 a b)       (i32remainder (i32- a b) i32max))
     (define (imul32 a b)       (i32remainder (i32* a b) i32max))
     (define (idiv32_u a b buf) (u32->s32 (i32quotient (s32->u32 a buf) (s32->u32 b buf)) buf))
     (define (idiv32_s a b buf) (i32quotient a b))
@@ -168,7 +168,7 @@
     (define (bytes->u64 buf [size 8]) (u64->s64 (bytes->integer buf size #f)))
 
     (define (iadd64 a b)       (remainder (+ a b) i64max))
-    (define (isub64 a b)       (remainder (+ (- a b) i64max) i64max))
+    (define (isub64 a b)       (remainder (- a b) i64max))
     (define (imul64 a b)       (remainder (* a b) i64max))
     (define (idiv64_u a b buf) (u64->s64 (quotient (s64->u64 a buf) (s64->u64 b buf))))
     (define (idiv64_s a b buf) (quotient a b))
