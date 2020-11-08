@@ -395,8 +395,8 @@
                    [(instr:f64.convert_i64_u _) (smatch [n] (fconvert64_u n buf))]
                    [(instr:f64.convert_i64_s _) (smatch [n] (fconvert64_s n buf))]
 
-                   [(instr:i64.extend_i32_u _)
-                    stack]
+                   [(instr:i64.extend_i32_u _) stack]
+                   [(instr:i64.extend_i32_s _) stack]
 
                    [_
                     (trap "~e not implemented" instr)]))))))

@@ -88,7 +88,9 @@
 
 (define i8max  #xFF)
 (define i16max #xFFFFF)
+(define s32max #x7FFFFFFF)
 (define i32max #xFFFFFFFF)
+(define s64max #x7FFFFFFFFFFFFFFF)
 (define i64max #xFFFFFFFFFFFFFFFF)
 
 (define i32popcnt (make-popcnt 32 i32rshift i32and))
@@ -132,17 +134,17 @@
     (define (bytes->i32 buf [size 4]) (bytes->integer buf size))
     (define (bytes->u32 buf [size 4]) (u32->s32 (bytes->integer buf size #f)))
 
-    (define (iadd32 a b)       (i32remainder (i32+ a b) i32max))
-    (define (isub32 a b)       (i32remainder (i32- a b) i32max))
-    (define (imul32 a b)       (i32remainder (i32* a b) i32max))
+    (define (iadd32 a b)       (i32remainder (i32+ a b) s32max))
+    (define (isub32 a b)       (i32remainder (i32- a b) s32max))
+    (define (imul32 a b)       (i32remainder (i32* a b) s32max))
     (define (idiv32_u a b buf) (u32->s32 (i32quotient (s32->u32 a buf) (s32->u32 b buf)) buf))
     (define (idiv32_s a b buf) (i32quotient a b))
     (define (irem32_u a b buf) (u32->s32 (i32remainder (s32->u32 a buf) (s32->u32 b buf))))
     (define (irem32_s a b buf) (i32remainder a b))
     (define (iand32 a b)       (i32and a b))
-    (define (ior32 a b)        (i32ior a b))
-    (define (ixor32 a b)       (i32xor a b))
-    (define (ishl32 a b)       (i32lshift a (i32remainder b 32)))
+    (define (ior32 a b)        (i32remainder (i32ior a b) s32max))
+    (define (ixor32 a b)       (i32remainder (i32xor a b) s32max))
+    (define (ishl32 a b)       (i32remainder (i32lshift a (i32remainder b 32)) s32max))
     (define (ishr32_u a b buf) (i32rshift a (i32remainder b 32))) ;; FIXME
     (define (ishr32_s a b buf) (i32rshift a (i32remainder b 32))) ;; FIXME: sign extension
     (define (iclz32 a)         (i32clz a))
@@ -168,17 +170,17 @@
     (define (bytes->i64 buf [size 8]) (bytes->integer buf size))
     (define (bytes->u64 buf [size 8]) (u64->s64 (bytes->integer buf size #f)))
 
-    (define (iadd64 a b)       (remainder (+ a b) i64max))
-    (define (isub64 a b)       (remainder (- a b) i64max))
-    (define (imul64 a b)       (remainder (* a b) i64max))
+    (define (iadd64 a b)       (remainder (+ a b) s64max))
+    (define (isub64 a b)       (remainder (- a b) s64max))
+    (define (imul64 a b)       (remainder (* a b) s64max))
     (define (idiv64_u a b buf) (u64->s64 (quotient (s64->u64 a buf) (s64->u64 b buf))))
     (define (idiv64_s a b buf) (quotient a b))
     (define (irem64_u a b buf) (u64->s64 (remainder (s64->u64 a buf) (s64->u64 b buf))))
     (define (irem64_s a b buf) (remainder a b))
     (define (iand64 a b)       (bitwise-and a b))
-    (define (ior64 a b)        (bitwise-ior a b))
-    (define (ixor64 a b)       (bitwise-xor a b))
-    (define (ishl64 a b)       (arithmetic-shift a (remainder b 64)))
+    (define (ior64 a b)        (remainder (bitwise-ior a b) s64max))
+    (define (ixor64 a b)       (remainder (bitwise-xor a b) s64max))
+    (define (ishl64 a b)       (remainder (arithmetic-shift a (remainder b 64)) s64max))
     (define (ishr64_u a b buf) (arithmetic-shift a (- (remainder b 64)))) ;; FIXME
     (define (ishr64_s a b buf) (arithmetic-shift a (- (remainder b 64)))) ;; FIXME: sign extension
     (define (iclz64 a)         (i64clz a))
