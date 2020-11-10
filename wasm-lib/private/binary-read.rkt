@@ -368,7 +368,7 @@
      (functype null (list (read-valtype! buf in)))]
 
     [else
-     (typeidx (read-sint! buf 33 in))]))
+     (typeidx (read-sint! "33bit signed integer" buf in))]))
 
 (define (read-memarg! buf in)
   (memarg (read-u32! buf in)
@@ -524,8 +524,7 @@
       [(zero? (bitwise-and b #x80)) new-n]
       [else (loop new-n (+ s 7))])))
 
-(define (read-sint! buf bits in)
-  (define what (format "signed ~abit integer" bits))
+(define (read-sint! what buf in)
   (let loop ([n 0]
              [s 0])
     (define b (read-byte! what buf in))
@@ -543,10 +542,10 @@
       (oops! in "unsigned 32bit integer out of bounds"))))
 
 (define (read-i32! buf in)
-  (read-sint! buf 32 in))
+  (read-sint! "32bit signed integer" buf in))
 
 (define (read-i64! buf in)
-  (read-sint! buf 64 in))
+  (read-sint! "64bit signed integer" buf in))
 
 (define (read-f32! buf in)
   (read-n-bytes! "f32" buf 4 in)
