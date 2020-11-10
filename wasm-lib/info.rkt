@@ -7,3 +7,5 @@
                "ralist"
                "threading-lib"))
 (define build-deps '())
+(define pre-install-collection "private/lib/install.rkt")
+(define compile-omit-files '("private/lib/install.rkt"))
