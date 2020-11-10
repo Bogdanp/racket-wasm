@@ -1,7 +1,6 @@
 #lang racket/base
 
 (require (for-syntax racket/base)
-         (prefix-in ra: data/ralist)
          racket/contract
          racket/list
          racket/match
@@ -167,14 +166,14 @@
       (define func-c
         (struct-copy ctx c
                      [locals (make-locals type code)]
-                     [labels (ra:list type)]
+                     [labels (list type)]
                      [return (functype-results type)]))
       (validate-code func-c here (code-instrs code)))))
 
 (define (validate-block c who type instrs)
   (define block-c
     (struct-copy ctx c
-                 [labels (ra:cons type (ctx-labels c))]
+                 [labels (cons type (ctx-labels c))]
                  [return (functype-results type)]))
   (validate-code block-c who instrs))
 
@@ -435,7 +434,7 @@
          (mod-memories m)
          (mod-globals m)
          (vector)
-         (ra:list)
+         (list)
          (list)))
   (struct-copy ctx c [functions (for/vector ([(tidx fidx) (in-indexed (mod-functions m))])
                                   (define who (funcidx fidx))
@@ -467,4 +466,4 @@
   [global-ref "global" ctx-globals]
   [local-ref "local" ctx-locals])
 
-(define-ref label-ref "label" ctx-labels ra:length ra:list-ref)
+(define-ref label-ref "label" ctx-labels length list-ref)

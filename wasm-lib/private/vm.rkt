@@ -1,7 +1,7 @@
 #lang racket/base
 
-(require (prefix-in ra: data/ralist)
-         racket/contract
+(require racket/contract
+         racket/list
          racket/match
          (submod racket/performance-hint begin-encourage-inline)
          racket/vector
@@ -82,7 +82,7 @@
        (define stack
          (let/cc return
            (let vm-exec ([instrs instrs]
-                         [labels (ra:list return)])
+                         [labels (list return)])
              (for/fold ([stack null])
                        ([instr (in-vector instrs)])
                (define-syntax-rule (sconsume (var ...) e ...)
@@ -107,7 +107,7 @@
                     (define result-count (length (functype-results type)))
                     (define result-stack
                       (let/cc return
-                        (vm-exec block-code (ra:cons return labels))))
+                        (vm-exec block-code (cons return labels))))
                     (append (take result-stack result-count) stack)]
 
                    [(instr:loop _ (typeidx idx) _)
@@ -120,7 +120,7 @@
                       (let/cc return
                         (let loop ()
                           (let/cc continue
-                            (return (vm-exec loop-code (ra:cons continue labels))))
+                            (return (vm-exec loop-code (cons continue labels))))
                           (loop))))
                     (append (take result-stack result-count) stack)]
 
@@ -133,26 +133,26 @@
                     (define result-stack
                       (let/cc return
                         (match stack
-                          [(cons 0 _) (if else-code (vm-exec else-code (ra:cons return labels)) null)]
-                          [(cons _ _) (if then-code (vm-exec then-code (ra:cons return labels)) null)])))
+                          [(cons 0 _) (if else-code (vm-exec else-code (cons return labels)) null)]
+                          [(cons _ _) (if then-code (vm-exec then-code (cons return labels)) null)])))
                     (append (take result-stack result-count) (cdr stack))]
 
                    [(instr:return _)
-                    ((ra:last labels) stack)]
+                    ((last labels) stack)]
 
                    [(instr:br _ idx)
-                    ((ra:list-ref labels idx) stack)]
+                    ((list-ref labels idx) stack)]
 
                    [(instr:br_if _ idx)
                     (match stack
                       [(cons 0 st) st]
-                      [(cons _ st) ((ra:list-ref labels idx) st)])]
+                      [(cons _ st) ((list-ref labels idx) st)])]
 
                    [(instr:br_table _ tbl idx)
                     (define i (car stack))
                     (if (< i (vector-length tbl))
-                        ((ra:list-ref labels (vector-ref tbl i)) stack)
-                        ((ra:list-ref labels idx) stack))]
+                        ((list-ref labels (vector-ref tbl i)) stack)
+                        ((list-ref labels idx) stack))]
 
                    [(instr:call _ idx)
                     (define-values (type func)
