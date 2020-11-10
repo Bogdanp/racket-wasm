@@ -70,7 +70,7 @@
   (let vm-apply* ([func func]
                   [args args])
     (match func
-      [(hostfunc _ f) (apply f args)]
+      [(externfunc _ f) (apply f args)]
       [(localfunc _ code)
        (define instrs (code-instrs code))
        (define locals
@@ -157,8 +157,8 @@
                    [(instr:call _ idx)
                     (define-values (type func)
                       (match (vector-ref funcs idx)
-                        [(and (hostfunc  type _) func) (values type func)]
-                        [(and (localfunc type _) func) (values type func)]))
+                        [(and (externfunc type _) func) (values type func)]
+                        [(and (localfunc  type _) func) (values type func)]))
                     (define-values (args stack-remainder)
                       (split-at stack (length (functype-params type))))
                     (define args* (reverse args))
@@ -408,7 +408,6 @@
                    [(instr:f64.convert_i64_u _) (smatch [n] (fconvert64_u n))]
                    [(instr:f64.convert_i64_s _) (smatch [n] (fconvert64_s n))]
 
-
                    [_
                     (trap "~e not implemented" instr)]))))))
        stack])))
@@ -432,7 +431,7 @@
 (struct store (functions table memory globals)
   #:transparent)
 
-(struct hostfunc (type f)
+(struct externfunc (type f)
   #:transparent)
 
 (struct localfunc (type code)
@@ -454,7 +453,7 @@
             ([imp (in-vector (mod-imports m))])
     (match imp
       [(import mod name (typeidx idx))
-       (define func (hostfunc (vector-ref types idx) (lookup "function" mod name)))
+       (define func (externfunc (vector-ref types idx) (lookup "function" mod name)))
        (values (cons func functions) table memory globals)]
       [(import mod name (? tabletype?))
        (values functions (lookup "table" mod name) memory globals)]
