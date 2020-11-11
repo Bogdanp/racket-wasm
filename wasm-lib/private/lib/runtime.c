@@ -281,6 +281,10 @@ float fdemote64(double a) {
   return (float)a;
 }
 
+double fabs64(double a) {
+  return fabs(a);
+}
+
 double fadd64(double a, double b) {
   return a + b;
 }

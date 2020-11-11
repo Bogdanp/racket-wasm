@@ -388,6 +388,7 @@
                    [(instr:f32.le  _) (smatch [b a] (fle32  a b))]
                    [(instr:f32.ge  _) (smatch [b a] (fge32  a b))]
 
+                   [(instr:f64.abs _) (smatch [  a] (fabs64 a))]
                    [(instr:f64.add _) (smatch [b a] (fadd64 a b))]
                    [(instr:f64.sub _) (smatch [b a] (fsub64 a b))]
                    [(instr:f64.mul _) (smatch [b a] (fmul64 a b))]

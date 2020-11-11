@@ -35,6 +35,10 @@
 (define-syntax-rule (define-i64-unop id) (define-runtime id (_fun _int64  -> _int64)))
 (define-syntax-rule (define-i32-unops id ...) (begin (define-i32-unop id) ...))
 (define-syntax-rule (define-i64-unops id ...) (begin (define-i64-unop id) ...))
+(define-syntax-rule (define-f32-unop id) (define-runtime id (_fun _double*  -> _double*)))
+(define-syntax-rule (define-f64-unop id) (define-runtime id (_fun _double*  -> _double*)))
+(define-syntax-rule (define-f32-unops id ...) (begin (define-f32-unop id) ...))
+(define-syntax-rule (define-f64-unops id ...) (begin (define-f64-unop id) ...))
 
 (define-syntax-rule (define-i32-binop id) (define-runtime id (_fun _int32  _int32    -> _int32)))
 (define-syntax-rule (define-i64-binop id) (define-runtime id (_fun _int64  _int64    -> _int64)))
@@ -106,6 +110,9 @@
   (begin-encourage-inline
     (define (f64->bytes n buf) (real->bytes n 8 buf))
     (define (bytes->f64 buf)   (bytes->real buf 8))
+
+    (define-f64-unops
+      fabs64)
 
     (define-f64-binops
       fadd64 fsub64 fmul64 fdiv64)
