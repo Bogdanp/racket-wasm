@@ -6,8 +6,10 @@
 (provide pre-installer)
 
 (define cc
-  (for/first ([name '("clang" "gcc" "cc")])
-    (find-executable-path name)))
+  (for*/first ([name '("clang" "gcc" "cc")]
+               [path (in-value (find-executable-path name))]
+               #:when path)
+    path))
 
 (define (pre-installer _collections-top-path this-collection-path)
   (define lib-path (build-path this-collection-path "private" "lib"))
