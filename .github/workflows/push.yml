@@ -9,7 +9,7 @@ jobs:
       fail-fast: false
       matrix:
         variant: ["CS", "regular"]
-        version: ["7.8"]
+        version: ["7.8", "7.9", "current"]
 
     steps:
     - name: Checkout
