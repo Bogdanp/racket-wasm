@@ -193,7 +193,7 @@
 
   [#x0F return]
   [#x10 call          (idx)]
-  [#x11 call_indirect (idx tableidx)]
+  [#x11 call_indirect (idx tbl)]
 
   ;; Parametric instructions
   [#x1A drop   : forall t [t      ] -> [ ]]
