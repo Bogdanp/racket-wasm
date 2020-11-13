@@ -1,17 +1,15 @@
 #lang racket/base
 
-(require (for-syntax racket/base
-                     "core.rkt")
-         racket/contract
+(require racket/contract
          racket/list
          racket/match
          (submod racket/performance-hint begin-encourage-inline)
          racket/vector
-         syntax/parse/define
          threading
          "core.rkt"
          "error.rkt"
          "memory.rkt"
+         "opcase.rkt"
          "runtime.rkt")
 
 (provide
@@ -62,15 +60,6 @@
 
     [(memidx _)
      (store-memory s)]))
-
-(define-syntax-parser opcase
-  #:literals (else)
-  [(_ e:expr [opcode-id:id rhs ...] ... [else else-rhs ...])
-   #:with (opcode ...) (for/list ([id (in-list (syntax-e #'(opcode-id ...)))])
-                         (datum->syntax id (namespace-variable-value (syntax->datum id))))
-   #'(case e
-       [(opcode) rhs ...] ...
-       [else else-rhs ...])])
 
 (define (vm-apply v func args)
   (match-define (vm m (store funcs table memory globals)) v)

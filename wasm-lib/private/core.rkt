@@ -110,13 +110,16 @@
  instruction?
  instruction-loc
  instruction-type
- opcode)
+ opcode
+ op:trunc_sat)
 
 (struct instruction (loc)
   #:transparent)
 
 (define-values (prop:opcode prop:opcode? opcode)
   (make-struct-type-property 'opcode))
+
+(define op:trunc_sat #xFC)
 
 (begin-for-syntax
   (define (raise-instruction-literal-error stx)
