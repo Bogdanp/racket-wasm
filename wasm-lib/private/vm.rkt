@@ -101,10 +101,6 @@
 
                  [op:block
                   (define type (instr:block-type instr))
-                  (when (typeidx? type)
-                    (define actual-type (vector-ref types type))
-                    (set-instr:block-type! instr actual-type)
-                    (set! type actual-type))
                   (define result-count (length (functype-results type)))
                   (define result-stack
                     (let/cc return
@@ -113,10 +109,6 @@
 
                  [op:loop
                   (define type (instr:loop-type instr))
-                  (when (typeidx? type)
-                    (define actual-type (vector-ref types type))
-                    (set-instr:loop-type! instr actual-type)
-                    (set! type actual-type))
                   (define result-count (length (functype-results type)))
                   (define result-stack
                     (let/cc return
@@ -128,10 +120,6 @@
 
                  [op:if
                   (define type (instr:if-type instr))
-                  (when (typeidx? type)
-                    (define actual-type (vector-ref types type))
-                    (set-instr:if-type! instr actual-type)
-                    (set! type actual-type))
                   (define then-code (instr:if-then-code instr))
                   (define else-code (instr:if-else-code instr))
                   (define result-count (length (functype-results type)))

@@ -34,6 +34,9 @@
      (skip-n-bytes! "custom section" buf len in)
      (custom-section #f))))
 
+(define current-types
+  (make-parameter (vector)))
+
 (define track-source-location?
   (make-parameter #t))
 
@@ -46,29 +49,50 @@
   (define version (subbytes buf 0 4))
   (unless (bytes=? version VERSION)
     (oops! in "unsupported version: ~a" version))
-  (let loop ([sections (make-mod-hash)])
-    (match (read-section! buf in)
-      [(? eof-object?) (mod-hash->mod sections)]
-      [section (loop (with-handlers ([exn:fail? (lambda (e)
-                                                  (oops! in "~a" (exn-message e)))])
-                       (mod-hash-add-section sections section)))])))
+  (let loop ([customs   null]
+             [types     (vector)]
+             [imports   (vector)]
+             [functions (vector)]
+             [tables    (vector)]
+             [memories  (vector)]
+             [globals   (vector)]
+             [exports   (vector)]
+             [start     #f]
+             [elements  (vector)]
+             [codes     (vector)]
+             [datas     (vector)])
+    (match (read-section! buf in types)
+      [(? eof-object?)              (mod customs types imports functions tables memories globals exports start elements codes datas)]
+      [(custom-section data)        (loop (cons data customs) types imports functions tables memories globals exports start elements codes datas)]
+      [(type-section types)         (loop customs types imports functions tables memories globals exports start elements codes datas)]
+      [(import-section imports)     (loop customs types imports functions tables memories globals exports start elements codes datas)]
+      [(function-section functions) (loop customs types imports functions tables memories globals exports start elements codes datas)]
+      [(table-section tables)       (loop customs types imports functions tables memories globals exports start elements codes datas)]
+      [(memory-section memories)    (loop customs types imports functions tables memories globals exports start elements codes datas)]
+      [(global-section globals)     (loop customs types imports functions tables memories globals exports start elements codes datas)]
+      [(export-section exports)     (loop customs types imports functions tables memories globals exports start elements codes datas)]
+      [(start-section start)        (loop customs types imports functions tables memories globals exports start elements codes datas)]
+      [(element-section elements)   (loop customs types imports functions tables memories globals exports start elements codes datas)]
+      [(code-section codes)         (loop customs types imports functions tables memories globals exports start elements codes datas)]
+      [(data-section datas)         (loop customs types imports functions tables memories globals exports start elements codes datas)])))
 
-(define (read-section! buf in)
-  (match (read-byte in)
-    [(? eof-object?) eof]
-    [0 (read-custom-section! buf in)]
-    [1 (read-type-section! buf in)]
-    [2 (read-import-section! buf in)]
-    [3 (read-function-section! buf in)]
-    [4 (read-table-section! buf in)]
-    [5 (read-memory-section! buf in)]
-    [6 (read-global-section! buf in)]
-    [7 (read-export-section! buf in)]
-    [8 (read-start-section! buf in)]
-    [9 (read-element-section! buf in)]
-    [10 (read-code-section! buf in)]
-    [11 (read-data-section! buf in)]
-    [idx (oops! in "unexpected section idx ~a" idx)]))
+(define (read-section! buf in types)
+  (parameterize ([current-types types])
+    (match (read-byte in)
+      [(? eof-object?) eof]
+      [0 (read-custom-section! buf in)]
+      [1 (read-type-section! buf in)]
+      [2 (read-import-section! buf in)]
+      [3 (read-function-section! buf in)]
+      [4 (read-table-section! buf in)]
+      [5 (read-memory-section! buf in)]
+      [6 (read-global-section! buf in)]
+      [7 (read-export-section! buf in)]
+      [8 (read-start-section! buf in)]
+      [9 (read-element-section! buf in)]
+      [10 (read-code-section! buf in)]
+      [11 (read-data-section! buf in)]
+      [idx (oops! in "unexpected section idx ~a" idx)])))
 
 (define (read-custom-section! buf in)
   (define len (read-u32! buf in))
@@ -387,7 +411,8 @@
      (functype null (list (read-valtype! buf in)))]
 
     [else
-     (typeidx (read-sint! "33bit signed integer" buf in))]))
+     (define idx (read-sint! "33bit signed integer" buf in))
+     (vector-ref (current-types) idx)]))
 
 (define (read-memarg! buf in)
   (memarg (read-u32! buf in)

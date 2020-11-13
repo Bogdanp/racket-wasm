@@ -149,7 +149,6 @@
        (define opcode-id opcode)
        (struct id instruction (~? (f ...) ())
          #:transparent
-         #:mutable
          #:property prop:opcode opcode-id
          #:methods gen:typed
          [(define (instruction-type _)
@@ -414,59 +413,19 @@
 ;; modules ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (provide
- (struct-out mod)
- make-mod-hash
- mod-hash-add-section
- mod-hash->mod)
+ (struct-out mod))
 
-(define (hash-add-section-help h k v multi?)
-  (cond
-    [multi?
-     (hash-update h k (curry cons v) null)]
-    [else
-     (when (hash-has-key? h k)
-       (raise-arguments-error 'mod-hash-add-section
-                              "duplicate section"
-                              "name" (symbol->string k)))
-     (hash-set h k v)]))
-
-(begin-for-syntax
-  (define-syntax-class mod-section
-    (pattern name:id #:with default #'(vector))
-    (pattern (name:id default:expr))))
-
-(define-syntax-parser define-mod-struct
-  [(_ name:id
-      [section:mod-section
-       (~optional (~and #:multi multi))
-       section-type?:expr
-       section-accessor:expr] ...+)
-   #:with (multi? ...) (for/list ([stx (in-list (syntax-e #'((~? multi #f) ...)))])
-                         (if (syntax->datum stx) #'#t #'#f))
-   #:with make-hash-name (format-id #'name "make-~a-hash" #'name)
-   #:with hash-add-section-name (format-id #'name "~a-hash-add-section" #'name)
-   #:with hash->name (format-id #'name "~a-hash->~a" #'name #'name)
-   #'(begin
-       (define (make-hash-name) (hasheq))
-       (define (hash-add-section-name h v)
-         (cond
-           [(section-type? v) (hash-add-section-help h 'section.name (section-accessor v) multi?)] ...
-           [else (raise-argument-error 'hash-add-section-name "section?" v)]))
-       (define (hash->name h)
-         (name (hash-ref h 'section.name section.default) ...))
-       (struct name (section.name ...)
-         #:transparent))])
-
-(define-mod-struct mod
-  [(customs null) #:multi custom-section? custom-section-data]
-  [types type-section? type-section-functypes]
-  [imports import-section? import-section-imports]
-  [functions function-section? function-section-typeidxs]
-  [tables table-section? table-section-tables]
-  [memories memory-section? memory-section-memories]
-  [globals global-section? global-section-globals]
-  [exports export-section? export-section-exports]
-  [(start #f) start-section? start-section-funcidx]
-  [elements element-section? element-section-elements]
-  [codes code-section? code-section-codes]
-  [datas data-section? data-section-datas])
+(struct mod
+  (customs
+   types
+   imports
+   functions
+   tables
+   memories
+   globals
+   exports
+   start
+   elements
+   codes
+   datas)
+  #:transparent)
