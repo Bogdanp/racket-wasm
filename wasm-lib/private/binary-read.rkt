@@ -35,7 +35,7 @@
      (custom-section #f))))
 
 (define track-source-location?
-  (make-parameter #f))
+  (make-parameter #t))
 
 (define (read-wasm in [buf (make-bytes (* 64 1024))])
   (read-n-bytes! "magic header" buf 4 in)
@@ -138,11 +138,11 @@
   (define source-name (object-name in))
   (define track-srcloc? (track-source-location?))
   (let loop ([instrs null])
+    (define b (read-byte! "instr" buf in))
     (define l
       (if track-srcloc?
           (loc source-name (file-position* in))
           (loc-unknown source-name)))
-    (define b (read-byte! "instr" buf in))
     (define instr
       (opcase b
         ;; Control instructions
