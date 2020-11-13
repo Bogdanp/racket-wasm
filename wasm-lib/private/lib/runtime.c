@@ -53,6 +53,14 @@ int32_t ishr32_s(int32_t a, int32_t b) {
   return a >> b;
 }
 
+int32_t irotl32(int32_t a, int32_t b) {
+  return __builtin_rotateleft32(a, b);
+}
+
+int32_t irotr32(int32_t a, int32_t b) {
+  return __builtin_rotateright32(a, b);
+}
+
 int32_t ieqz32(int32_t a) {
   return a == 0 ? 1 : 0;
 }
@@ -97,10 +105,6 @@ int32_t ige32_s(int32_t a, int32_t b) {
   return a >= b ? 1 : 0;
 }
 
-int32_t iwrap32(int64_t a) {
-  return (int32_t)a;
-}
-
 int32_t iclz32(int32_t a) {
   return __builtin_clz(a);
 }
@@ -111,6 +115,26 @@ int32_t ictz32(int32_t a) {
 
 int32_t ipopcnt32(int32_t a) {
   return __builtin_popcount(a);
+}
+
+int32_t iwrap32(int64_t a) {
+  return (int32_t)a;
+}
+
+uint32_t itrunc32_32_u(float a) {
+  return (uint32_t)trunc(a);
+}
+
+int32_t itrunc32_32_s(float a) {
+  return (int32_t)trunc(a);
+}
+
+uint32_t itrunc32_64_u(double a) {
+  return (uint32_t)trunc(a);
+}
+
+int32_t itrunc32_64_s(double a) {
+  return (int32_t)trunc(a);
 }
 
 int64_t iadd64(int64_t a, int64_t b) {
@@ -163,6 +187,14 @@ uint64_t ishr64_u(uint64_t a, uint64_t b) {
 
 int64_t ishr64_s(int64_t a, int64_t b) {
   return a >> b;
+}
+
+int64_t irotl64(int64_t a, int64_t b) {
+  return __builtin_rotateleft64(a, b);
+}
+
+int64_t irotr64(int64_t a, int64_t b) {
+  return __builtin_rotateright64(a, b);
 }
 
 int64_t ieqz64(int64_t a) {
@@ -229,12 +261,48 @@ int64_t iextend32_s(int32_t a) {
   return (int64_t)a;
 }
 
-uint64_t itrunc64_u(double a) {
+uint64_t itrunc64_32_u(float a) {
   return (uint64_t)trunc(a);
 }
 
-int64_t itrunc64_s(double a) {
+int64_t itrunc64_32_s(float a) {
   return (int64_t)trunc(a);
+}
+
+uint64_t itrunc64_64_u(double a) {
+  return (uint64_t)trunc(a);
+}
+
+int64_t itrunc64_64_s(double a) {
+  return (int64_t)trunc(a);
+}
+
+float fabs32(float a) {
+  return fabsf(a);
+}
+
+float fneg32(float a) {
+  return -a;
+}
+
+float fceil32(float a) {
+  return ceilf(a);
+}
+
+float ffloor32(float a) {
+  return floorf(a);
+}
+
+float ftrunc32(float a) {
+  return truncf(a);
+}
+
+float fnearest32(float a) {
+  return roundf(a);
+}
+
+float fsqrt32(float a) {
+  return sqrtf(a);
 }
 
 float fadd32(float a, float b) {
@@ -251,6 +319,18 @@ float fmul32(float a, float b) {
 
 float fdiv32(float a, float b) {
   return a / b;
+}
+
+float fmin32(float a, float b) {
+  return fminf(a, b);
+}
+
+float fmax32(float a, float b) {
+  return fmaxf(a, b);
+}
+
+float fcopysign32(float a, float b) {
+  return copysignf(a, b);
 }
 
 int64_t feq32(float a, float b) {
@@ -285,6 +365,30 @@ double fabs64(double a) {
   return fabs(a);
 }
 
+double fneg64(double a) {
+  return -a;
+}
+
+double fceil64(double a) {
+  return ceil(a);
+}
+
+double ffloor64(double a) {
+  return floor(a);
+}
+
+double ftrunc64(double a) {
+  return trunc(a);
+}
+
+double fnearest64(double a) {
+  return round(a);
+}
+
+double fsqrt64(double a) {
+  return sqrt(a);
+}
+
 double fadd64(double a, double b) {
   return a + b;
 }
@@ -299,6 +403,18 @@ double fmul64(double a, double b) {
 
 double fdiv64(double a, double b) {
   return a / b;
+}
+
+double fmin64(double a, double b) {
+  return fmin(a, b);
+}
+
+double fmax64(double a, double b) {
+  return fmax(a, b);
+}
+
+double fcopysign64(double a, double b) {
+  return copysign(a, b);
 }
 
 int64_t feq64(double a, double b) {

@@ -87,14 +87,18 @@
 
   (define-i32-binops
     iadd32 isub32 imul32 idiv32_u idiv32_s irem32_u irem32_s
-    iand32 ior32 ixor32 ishl32 ishr32_u ishr32_s
+    iand32 ior32 ixor32 ishl32 ishr32_u ishr32_s irotl32 irotr32
     ieq32 ine32 ilt32_u ilt32_s igt32_u igt32_s ile32_u ile32_s ige32_u ige32_s)
 
   (define-i32-unops
     ieqz32 iclz32 ictz32 ipopcnt32)
 
   (define-i32-cvtops
-    [iwrap32 : _int64 -> _int32])
+    [iwrap32       :   _int64 -> _int32]
+    [itrunc32_32_u : _double* -> _int32]
+    [itrunc32_32_s : _double* -> _int32]
+    [itrunc32_64_u : _double* -> _int32]
+    [itrunc32_64_s : _double* -> _int32])
 
 
   ;; i64 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -105,17 +109,19 @@
 
   (define-i64-binops
     iadd64 isub64 imul64 idiv64_u idiv64_s irem64_u irem64_s
-    iand64 ior64 ixor64 ishl64 ishr64_u ishr64_s
+    iand64 ior64 ixor64 ishl64 ishr64_u ishr64_s irotl64 irotr64
     ieq64 ine64 ilt64_u ilt64_s igt64_u igt64_s ile64_u ile64_s ige64_u ige64_s)
 
   (define-i64-unops
     ieqz64 iclz64 ictz64 ipopcnt64)
 
   (define-i64-cvtops
-    [iextend32_u :  _int32  -> _int64]
-    [iextend32_s :  _int32  -> _int64]
-    [itrunc64_u  : _double* -> _int64]
-    [itrunc64_s  : _double* -> _int64])
+    [iextend32_u   :  _int32  -> _int64]
+    [iextend32_s   :  _int32  -> _int64]
+    [itrunc64_32_u : _double* -> _int64]
+    [itrunc64_32_s : _double* -> _int64]
+    [itrunc64_64_u : _double* -> _int64]
+    [itrunc64_64_s : _double* -> _int64])
 
 
   ;; f32 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -123,8 +129,11 @@
   (define/provide (f32->bytes n buf) (real->bytes n 4 buf))
   (define/provide (bytes->f32 buf)   (bytes->real buf 4))
 
+  (define-f32-unops
+    fabs32 fneg32 fceil32 ffloor32 ftrunc32 fnearest32 fsqrt32)
+
   (define-f32-binops
-    fadd32 fsub32 fmul32 fdiv32)
+    fadd32 fsub32 fmul32 fdiv32 fmin32 fmax32 fcopysign32)
 
   (define-f32-cmpops
     feq32 fne32 flt32 fgt32 fle32 fge32)
@@ -139,10 +148,10 @@
   (define/provide (bytes->f64 buf)   (bytes->real buf 8))
 
   (define-f64-unops
-    fabs64)
+    fabs64 fneg64 fceil64 ffloor64 ftrunc64 fnearest64 fsqrt64)
 
   (define-f64-binops
-    fadd64 fsub64 fmul64 fdiv64)
+    fadd64 fsub64 fmul64 fdiv64 fmin64 fmax64 fcopysign64)
 
   (define-f64-cmpops
     feq64 fne64 flt64 fgt64 fle64 fge64)
