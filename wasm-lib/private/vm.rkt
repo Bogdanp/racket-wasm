@@ -42,8 +42,7 @@
             (store-add-elements m)
             (store-add-globals m))))
 
-(define/contract (vm-ref v name)
-  (-> vm? string? (or/c #f procedure? memory?))
+(define (vm-ref v name [debug debug])
   (define s (vm-store v))
   (define description
     (for*/first ([e (in-vector (mod-exports (vm-mod v)))]
@@ -56,15 +55,19 @@
     [(funcidx idx)
      (define func (vector-ref (store-functions s) idx))
      (lambda args
-       (vm-apply v func args))]
+       (vm-apply v func args debug))]
 
     [(memidx _)
      (store-memory s)]))
 
-(define (vm-apply v func args)
-  (match-define (vm m (store funcs table memory globals)) v)
+(define (vm-apply v func args [debug debug] [buf (make-bytes 8)])
+  (define m (vm-mod v))
+  (define s (vm-store v))
   (define types (mod-types m))
-  (define buf (make-bytes 8))
+  (define funcs (store-functions s))
+  (define table (store-table s))
+  (define memory (store-memory s))
+  (define globals (store-globals s))
   (let vm-apply* ([func func]
                   [args args])
     (match func
@@ -368,10 +371,10 @@
                  [op:i32.shr_s  (smatch [b a] (ishr32_s a b))]
                  [op:i32.rotl   (smatch [b a] (irotl32  a b))]
                  [op:i32.rotr   (smatch [b a] (irotr32  a b))]
-                 [op:i32.clz    (smatch [n]   (iclz32     n))]
-                 [op:i32.ctz    (smatch [n]   (ictz32     n))]
-                 [op:i32.popcnt (smatch [n]   (ipopcnt32  n))]
-                 [op:i32.eqz    (smatch [n]   (ieqz32     n))]
+                 [op:i32.clz    (smatch [  n] (iclz32     n))]
+                 [op:i32.ctz    (smatch [  n] (ictz32     n))]
+                 [op:i32.popcnt (smatch [  n] (ipopcnt32  n))]
+                 [op:i32.eqz    (smatch [  n] (ieqz32     n))]
                  [op:i32.eq     (smatch [b a] (ieq32    a b))]
                  [op:i32.ne     (smatch [b a] (ine32    a b))]
                  [op:i32.lt_u   (smatch [b a] (ilt32_u  a b))]
@@ -398,10 +401,10 @@
                  [op:i64.shr_s  (smatch [b a] (ishr64_s a b))]
                  [op:i64.rotl   (smatch [b a] (irotl64  a b))]
                  [op:i64.rotr   (smatch [b a] (irotr64  a b))]
-                 [op:i64.clz    (smatch [n]   (iclz64     n))]
-                 [op:i64.ctz    (smatch [n]   (ictz64     n))]
-                 [op:i64.popcnt (smatch [n]   (ipopcnt64  n))]
-                 [op:i64.eqz    (smatch [n]   (ieqz64     n))]
+                 [op:i64.clz    (smatch [  n] (iclz64     n))]
+                 [op:i64.ctz    (smatch [  n] (ictz64     n))]
+                 [op:i64.popcnt (smatch [  n] (ipopcnt64  n))]
+                 [op:i64.eqz    (smatch [  n] (ieqz64     n))]
                  [op:i64.eq     (smatch [b a] (ieq64    a b))]
                  [op:i64.ne     (smatch [b a] (ine64    a b))]
                  [op:i64.lt_u   (smatch [b a] (ilt64_u  a b))]
