@@ -9,10 +9,7 @@
          "core.rkt"
          "error.rkt"
          "memory.rkt"
-         (submod "runtime.rkt" i32)
-         (submod "runtime.rkt" i64)
-         (submod "runtime.rkt" f32)
-         (submod "runtime.rkt" f64))
+         "runtime.rkt")
 
 (provide
  vm?
