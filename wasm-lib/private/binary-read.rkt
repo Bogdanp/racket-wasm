@@ -515,12 +515,12 @@
 (define (read-n-bytes! what buf n in)
   (let loop ([offset 0]
              [remaining n])
-    (unless (zero? remaining)
-      (define n-read (read-bytes! buf in offset (+ offset remaining)))
-      (if (eof-object? n-read)
-          (oops! in "unexpected EOF while reading ~a" what)
-          (loop (+ offset n-read)
-                (- remaining n-read))))))
+    (define n-read (read-bytes! buf in offset (+ offset remaining)))
+    (when (eof-object? n-read)
+      (oops! in "unexpected EOF while reading ~a" what))
+    (define new-remaining (- remaining n-read))
+    (unless (zero? new-remaining)
+      (loop (+ offset n-read) new-remaining))))
 
 (define (read-byte! what buf in)
   (read-n-bytes! what buf 1 in)
