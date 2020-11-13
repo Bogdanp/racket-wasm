@@ -108,7 +108,7 @@
                   null]
 
                  [op:block
-                  (define maybe-type (instr:block-type instr))
+                  (define type (instr:block-type instr))
                   (when (typeidx? type)
                     (define actual-type (vector-ref types type))
                     (set-instr:block-type! instr actual-type)
