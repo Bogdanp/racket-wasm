@@ -80,74 +80,76 @@
                            (locals-n l)))))
        (for ([(arg posn) (in-indexed args)])
          (vector-set! locals posn arg))
-       (define stack
-         (let/cc return
-           (let vm-exec ([instrs instrs]
-                         [labels (list return)])
-             (for/fold ([stack null])
-                       ([instr (in-vector instrs)])
-               (define-syntax-rule (sconsume (var ...) e ...)
-                 (match stack [(list* var ... st) e ... st]))
-               (define-syntax-rule (smatch (var ...) e ... eN)
-                 (match stack [(list* var ... st) e ... (cons eN st)]))
-               (debug 'vm-exec (list v stack instr))
+       (define-values (_ stack)
+         (let vm-exec ([instrs instrs]
+                       [labels 0])
+           (let loop ([pc 0] [stack null])
+             (define instr (vector-ref instrs pc))
+             (define-syntax-rule (sconsume (var ...) e ...)
+               (match stack [(list* var ... st) e ... (values #f #f st)]))
+             (define-syntax-rule (smatch (var ...) e ... eN)
+               (match stack [(list* var ... st) e ... (values #f #f (cons eN st))]))
+             (debug 'vm-exec (list v stack instr))
+             (define-values (break? return-label new-stack)
                (opcase (opcode instr)
                  ;; Control instructions
                  [op:unreachable
                   (trap "unreachable")]
 
                  [op:nop
-                  null]
+                  (values #f #f null)]
 
                  [op:block
                   (define type (instr:block-type instr))
                   (define result-count (length (functype-results type)))
-                  (define result-stack
-                    (let/cc return
-                      (vm-exec (instr:block-code instr) (cons return labels))))
-                  (append (take result-stack result-count) stack)]
+                  (define-values (return-label result-stack)
+                    (vm-exec (instr:block-code instr) (add1 labels)))
+                  (if (and return-label (> return-label 0))
+                      (values #t (sub1 return-label) result-stack)
+                      (values #f #f (append (take result-stack result-count) stack)))]
 
                  [op:loop
                   (define type (instr:loop-type instr))
                   (define result-count (length (functype-results type)))
-                  (define result-stack
-                    (let/cc return
-                      (let loop ()
-                        (let/cc continue
-                          (return (vm-exec (instr:loop-code instr) (cons continue labels))))
-                        (loop))))
-                  (append (take result-stack result-count) stack)]
+                  (let inner-loop ()
+                    (define-values (return-label result-stack)
+                      (vm-exec (instr:loop-code instr) (add1 labels)))
+                    (cond
+                      [(not return-label) (values #f #f (append (take result-stack result-count) stack))]
+                      [(zero? return-label) (inner-loop)]
+                      [else (values #t (sub1 return-label) result-stack)]))]
 
                  [op:if
                   (define type (instr:if-type instr))
                   (define then-code (instr:if-then-code instr))
                   (define else-code (instr:if-else-code instr))
                   (define result-count (length (functype-results type)))
-                  (define result-stack
-                    (let/cc return
-                      (match stack
-                        [(cons 0 _) (if else-code (vm-exec else-code (cons return labels)) null)]
-                        [(cons _ _) (if then-code (vm-exec then-code (cons return labels)) null)])))
-                  (append (take result-stack result-count) (cdr stack))]
+                  (define-values (return-label result-stack)
+                    (match stack
+                      [(cons 0 _) (if else-code (vm-exec else-code (add1 labels)) (values #f null))]
+                      [(cons _ _) (if then-code (vm-exec then-code (add1 labels)) (values #f null))]))
+                  (if (and return-label (> return-label 0))
+                      (values #t (sub1 return-label) result-stack)
+                      (values #f #f (append (take result-stack result-count) (cdr stack))))]
 
                  [op:return
-                  ((last labels) stack)]
+                  (values #t labels stack)]
 
                  [op:br
-                  ((list-ref labels (instr:br-lbl instr)) stack)]
+                  (values #t (instr:br-lbl instr) stack)]
 
                  [op:br_if
                   (match stack
-                    [(cons 0 st) st]
-                    [(cons _ st) ((list-ref labels (instr:br_if-lbl instr)) st)])]
+                    [(cons 0 st) (values #f #f st)]
+                    [(cons _ st) (values #t (instr:br_if-lbl instr) st)])]
 
                  [op:br_table
                   (define i (car stack))
                   (define tbl (instr:br_table-tbl instr))
                   (define lbl (instr:br_table-lbl instr))
                   (if (< i (vector-length tbl))
-                      ((list-ref labels (vector-ref tbl i)) (cdr stack))
-                      ((list-ref labels lbl) (cdr stack)))]
+                      (values #t (vector-ref tbl i) (cdr stack))
+                      (values #t lbl (cdr stack)))]
 
                  [op:call
                   (define-values (type func)
@@ -158,7 +160,7 @@
                     (split-at stack (length (functype-params type))))
                   (define args* (reverse args))
                   (debug 'call (list (instr:call-idx instr) args*))
-                  (append (vm-apply* func args*) stack-remainder)]
+                  (values #f #f (append (vm-apply* func args*) stack-remainder))]
 
                  [op:call_indirect
                   (define typeidx (instr:call_indirect-idx instr))
@@ -168,7 +170,7 @@
                      (define func (vector-ref table idx))
                      (define-values (args stack-remainder)
                        (split-at stack (length (functype-params type))))
-                     (append (vm-apply* func (reverse args)) stack-remainder)])]
+                     (values #f #f (append (vm-apply* func (reverse args)) stack-remainder))])]
 
                  ;; Parameteric Instructions
                  [op:drop
@@ -473,7 +475,13 @@
                  [op:f32.reinterpret_i32 (smatch [a] (freinterpret32  a))]
                  [op:f64.reinterpret_i64 (smatch [a] (freinterpret64  a))]
 
-                 [else (trap "~e not implemented" instr)])))))
+                 [else (trap "~e not implemented" instr)]))
+
+             (define next-pc (add1 pc))
+             (cond
+               [break? (values return-label new-stack)]
+               [(= next-pc (vector-length instrs)) (values #f new-stack)]
+               [else (loop next-pc new-stack)]))))
        stack])))
 
 (define (take xs n)
