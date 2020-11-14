@@ -44,7 +44,9 @@
         (match (instruction-loc (car whos))
           [(loc source pos)
            (printf "  in: ~a~n" source)
-           (printf "  offset: ~a (0x~a)~n" pos (number->string pos 16))]))
+           (printf "  offset: ~a (0x~a)~n" pos (number->string pos 16))]
+          [(loc-unknown source)
+           (printf "  in: ~a~n" source)]))
       (printf "  at: ~v" (car whos))
       (for ([who (in-list (cdr whos))])
         (newline)
