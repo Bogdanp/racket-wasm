@@ -139,7 +139,11 @@
     feq32 fne32 flt32 fgt32 fle32 fge32)
 
   (define-f32-cvtops
-    [fdemote64 : _double* -> _double*])
+    [fconvert32_32_s :   _int32 -> _double*]
+    [fconvert32_32_u :   _int32 -> _double*]
+    [fconvert32_64_s :   _int64 -> _double*]
+    [fconvert32_64_u :   _int64 -> _double*]
+    [fdemote64       : _double* -> _double*])
 
 
   ;; f64 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -157,6 +161,8 @@
     feq64 fne64 flt64 fgt64 fle64 fge64)
 
   (define-f64-cvtops
-    [fpromote32   : _double* -> _double*]
-    [fconvert64_u :   _int64 -> _double*]
-    [fconvert64_s :   _int64 -> _double*]))
+    [fconvert64_32_s :   _int32 -> _double*]
+    [fconvert64_32_u :   _int32 -> _double*]
+    [fconvert64_64_s :   _int64 -> _double*]
+    [fconvert64_64_u :   _int64 -> _double*]
+    [fpromote32      : _double* -> _double*]))

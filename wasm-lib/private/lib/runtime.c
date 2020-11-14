@@ -377,6 +377,22 @@ int64_t fge32(float a, float b) {
   return a >= b ? 1 : 0;
 }
 
+float fconvert32_32_s(int32_t a) {
+  return (float)a;
+}
+
+float fconvert32_32_u(uint32_t a) {
+  return (float)a;
+}
+
+float fconvert32_64_s(int64_t a) {
+  return (float)a;
+}
+
+float fconvert32_64_u(uint64_t a) {
+  return (float)a;
+}
+
 float fdemote64(double a) {
   return (float)a;
 }
@@ -465,10 +481,18 @@ double fpromote32(float a) {
   return (double)a;
 }
 
-double fconvert64_u(uint64_t a) {
+double fconvert64_32_s(int32_t a) {
   return (double)a;
 }
 
-double fconvert64_s(int64_t a) {
+double fconvert64_32_u(uint32_t a) {
+  return (double)a;
+}
+
+double fconvert64_64_s(int64_t a) {
+  return (double)a;
+}
+
+double fconvert64_64_u(uint64_t a) {
   return (double)a;
 }
