@@ -85,6 +85,9 @@
   (define/provide (bytes->i32 buf [size 4]) (bytes->integer buf size))
   (define/provide (bytes->u32 buf [size 4]) (u32->s32 (bytes->integer buf size #f)))
 
+  (define/provide (ireinterpret32 n)
+    (bytes->u32 (f32->bytes n)))
+
   (define-i32-binops
     iadd32 isub32 imul32 idiv32_u idiv32_s irem32_u irem32_s
     iand32 ior32 ixor32 ishl32 ishr32_u ishr32_s irotl32 irotr32
@@ -106,6 +109,9 @@
   (define/provide (i64->bytes n buf)        (integer->bytes n 8 buf))
   (define/provide (bytes->i64 buf [size 8]) (bytes->integer buf size))
   (define/provide (bytes->u64 buf [size 8]) (u64->s64 (bytes->integer buf size #f)))
+
+  (define/provide (ireinterpret64 n)
+    (bytes->u64 (f64->bytes n)))
 
   (define-i64-binops
     iadd64 isub64 imul64 idiv64_u idiv64_s irem64_u irem64_s
@@ -129,6 +135,9 @@
   (define/provide (f32->bytes n buf) (real->bytes n 4 buf))
   (define/provide (bytes->f32 buf)   (bytes->real buf 4))
 
+  (define/provide (freinterpret32 n)
+    (bytes->f32 (i32->bytes n)))
+
   (define-f32-unops
     fabs32 fneg32 fceil32 ffloor32 ftrunc32 fnearest32 fsqrt32)
 
@@ -150,6 +159,9 @@
 
   (define/provide (f64->bytes n buf) (real->bytes n 8 buf))
   (define/provide (bytes->f64 buf)   (bytes->real buf 8))
+
+  (define/provide (freinterpret64 n)
+    (bytes->f64 (i64->bytes n)))
 
   (define-f64-unops
     fabs64 fneg64 fceil64 ffloor64 ftrunc64 fnearest64 fsqrt64)
