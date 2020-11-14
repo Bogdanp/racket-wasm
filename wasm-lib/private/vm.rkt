@@ -68,6 +68,8 @@
   (define table (store-table s))
   (define memory (store-memory s))
   (define globals (store-globals s))
+  (define-syntax-rule (debug* arg ...)
+    (and debug (debug arg ...)))
   (let vm-apply* ([func func]
                   [args args])
     (match func
@@ -89,7 +91,7 @@
                (match stack [(list* var ... st) e ... (values #f #f st)]))
              (define-syntax-rule (smatch (var ...) e ... eN)
                (match stack [(list* var ... st) e ... (values #f #f (cons eN st))]))
-             (debug 'vm-exec (list v stack instr))
+             (debug* 'vm-exec (list v stack instr))
              (define-values (break? return-label new-stack)
                (opcase (opcode instr)
                  ;; Control instructions
@@ -159,7 +161,7 @@
                   (define-values (args stack-remainder)
                     (split-at stack (length (functype-params type))))
                   (define args* (reverse args))
-                  (debug 'call (list (instr:call-idx instr) args*))
+                  (debug* 'call (list (instr:call-idx instr) args*))
                   (values #f #f (append (vm-apply* func args*) stack-remainder))]
 
                  [op:call_indirect
