@@ -146,8 +146,8 @@
                   (define tbl (instr:br_table-tbl instr))
                   (define lbl (instr:br_table-lbl instr))
                   (if (< i (vector-length tbl))
-                      ((list-ref labels (vector-ref tbl i)) stack)
-                      ((list-ref labels lbl) stack))]
+                      ((list-ref labels (vector-ref tbl i)) (cdr stack))
+                      ((list-ref labels lbl) (cdr stack)))]
 
                  [op:call
                   (define-values (type func)
@@ -331,7 +331,8 @@
                     (memory-store! memory ea (f64->bytes n buf) 8))]
 
                  [op:memory.size
-                  (cons (memory-size memory) stack)]
+                  (smatch []
+                    (memory-size memory))]
 
                  [op:memory.grow
                   (smatch [n]
@@ -339,10 +340,10 @@
                       (memory-grow! memory n)))]
 
                  ;; Numeric Instructions
-                 [op:i32.const (cons (instr:i32.const-n instr) stack)]
-                 [op:i64.const (cons (instr:i64.const-n instr) stack)]
-                 [op:f32.const (cons (instr:f32.const-n instr) stack)]
-                 [op:f64.const (cons (instr:f64.const-n instr) stack)]
+                 [op:i32.const (smatch [] (instr:i32.const-n instr))]
+                 [op:i64.const (smatch [] (instr:i64.const-n instr))]
+                 [op:f32.const (smatch [] (instr:f32.const-n instr))]
+                 [op:f64.const (smatch [] (instr:f64.const-n instr))]
 
                  [op:i32.add    (smatch [b a] (iadd32   a b))]
                  [op:i32.sub    (smatch [b a] (isub32   a b))]
