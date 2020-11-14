@@ -175,9 +175,8 @@
                   (sconsume [_])]
 
                  [op:select
-                  (match stack
-                    [(list* 0 v2 _  st) (cons v2 st)]
-                    [(list* _ _  v1 st) (cons v1 st)])]
+                  (smatch [c v2 v1]
+                    (if (zero? c) v2 v1))]
 
                  ;; Variable Instructions
                  [op:local.get
@@ -198,7 +197,8 @@
                     (vector-set! globals (instr:global.set-idx instr) v))]
 
                  [op:global.get
-                  (cons (vector-ref globals (instr:global.get-idx instr)) stack)]
+                  (smatch []
+                    (vector-ref globals (instr:global.get-idx instr)))]
 
                  ;; Memory Instructions
                  [op:i32.load
