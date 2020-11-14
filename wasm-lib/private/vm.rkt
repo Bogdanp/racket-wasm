@@ -80,8 +80,11 @@
          (make-vector (fx+ (length args)
                            (for/sum ([l (in-vector (code-locals code))])
                              (locals-n l)))))
-       (for ([(arg posn) (in-indexed args)])
-         (vector-set! locals posn arg))
+       (let loop ([args args]
+                  [posn 0])
+         (unless (null? args)
+           (vector-set! locals posn (car args))
+           (loop (cdr args) (fx+ posn 1))))
        (define-values (_ stack)
          (let vm-exec ([instrs instrs]
                        [labels 0]
