@@ -42,23 +42,33 @@ int32_t ixor32(int32_t a, int32_t b) {
 }
 
 int32_t ishl32(int32_t a, int32_t b) {
-  return a << b;
+  return a << (b % 32);
 }
 
 uint32_t ishr32_u(uint32_t a, uint32_t b) {
-  return a >> b;
+  return a >> (b % 32);
 }
 
 int32_t ishr32_s(int32_t a, int32_t b) {
-  return a >> b;
+  return a >> (b % 32);
 }
 
-int32_t irotl32(int32_t a, int32_t b) {
-  return __builtin_rotateleft32(a, b);
+int32_t irotl32(uint32_t a, uint32_t b) {
+#if defined(__clang__)
+  return __builtin_rotateleft32(a, b % 32);
+#else
+  b = b % 32;
+  return (a << b) | (a >> (-b & 31));
+#endif
 }
 
-int32_t irotr32(int32_t a, int32_t b) {
-  return __builtin_rotateright32(a, b);
+int32_t irotr32(uint32_t a, uint32_t b) {
+#if defined(__clang__)
+  return __builtin_rotateright32(a, b % 32);
+#else
+  b = b % 32;
+  return (a >> b) | (a << (-b & 31));
+#endif
 }
 
 int32_t ieqz32(int32_t a) {
@@ -178,23 +188,33 @@ int64_t ixor64(int64_t a, int64_t b) {
 }
 
 int64_t ishl64(int64_t a, int64_t b) {
-  return a << b;
+  return a << (b % 64);
 }
 
 uint64_t ishr64_u(uint64_t a, uint64_t b) {
-  return a >> b;
+  return a >> (b % 64);
 }
 
 int64_t ishr64_s(int64_t a, int64_t b) {
-  return a >> b;
+  return a >> (b % 64);
 }
 
-int64_t irotl64(int64_t a, int64_t b) {
-  return __builtin_rotateleft64(a, b);
+int64_t irotl64(uint64_t a, uint64_t b) {
+#if defined(__clang__)
+  return __builtin_rotateleft64(a, b % 64);
+#else
+  b = b % 64;
+  return (a << b) | (a >> (-b & 63));
+#endif
 }
 
-int64_t irotr64(int64_t a, int64_t b) {
-  return __builtin_rotateright64(a, b);
+int64_t irotr64(uint64_t a, uint64_t b) {
+#if defined(__clang__)
+  return __builtin_rotateright64(a, b % 64);
+#else
+  b = b % 64;
+  return (a >> b) | (a << (-b & 63));
+#endif
 }
 
 int64_t ieqz64(int64_t a) {
