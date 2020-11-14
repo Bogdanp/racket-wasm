@@ -1,6 +1,7 @@
 #lang racket/base
 
 (require racket/contract
+         racket/fixnum
          racket/match
          (submod racket/performance-hint begin-encourage-inline)
          racket/vector
@@ -76,9 +77,9 @@
       [(localfunc _ code)
        (define instrs (code-instrs code))
        (define locals
-         (make-vector (+ (length args)
-                         (for/sum ([l (in-vector (code-locals code))])
-                           (locals-n l)))))
+         (make-vector (fx+ (length args)
+                           (for/sum ([l (in-vector (code-locals code))])
+                             (locals-n l)))))
        (for ([(arg posn) (in-indexed args)])
          (vector-set! locals posn arg))
        (define-values (_ stack)
@@ -86,7 +87,7 @@
                        [labels 0]
                        [stack null])
            (cond
-             [(vector-empty? instrs)
+             [(fx= (vector-length instrs) 0)
               (values #f stack)]
 
              [else
@@ -111,7 +112,7 @@
                      (define-values (params stack-remainder)
                        (split-at stack (length (functype-params type))))
                      (define-values (return-label results)
-                       (vm-exec (instr:block-code instr) (add1 labels) params))
+                       (vm-exec (instr:block-code instr) (fx+ labels 1) params))
                      (if (and return-label (> return-label 0))
                          (values #t (sub1 return-label) results)
                          (values #f #f (append results stack-remainder)))]
@@ -122,10 +123,10 @@
                        (split-at stack (length (functype-params type))))
                      (let inner-loop ()
                        (define-values (return-label results)
-                         (vm-exec (instr:loop-code instr) (add1 labels) params))
+                         (vm-exec (instr:loop-code instr) (fx+ labels 1) params))
                        (cond
                          [(not return-label) (values #f #f (append results stack))]
-                         [(zero? return-label) (inner-loop)]
+                         [(fx= return-label 0) (inner-loop)]
                          [else (values #t (sub1 return-label) results)]))]
 
                     [op:if
@@ -136,15 +137,15 @@
                        (split-at st (length (functype-params type))))
                      (define-values (return-label results)
                        (cond
-                         [(zero? c)
+                         [(fx= c 0)
                           (define else-code (instr:if-else-code instr))
                           (if else-code
-                              (vm-exec else-code (add1 labels) params)
+                              (vm-exec else-code (fx+ labels 1) params)
                               (values #f null))]
                          [else
                           (define then-code (instr:if-then-code instr))
                           (if then-code
-                              (vm-exec then-code (add1 labels) params)
+                              (vm-exec then-code (fx+ labels 1) params)
                               (values #f null))]))
                      (if (and return-label (> return-label 0))
                          (values #t (sub1 return-label) results)
@@ -196,7 +197,7 @@
 
                     [op:select
                      (smatch [c v2 v1]
-                       (if (zero? c) v2 v1))]
+                       (if (fx= c 0) v2 v1))]
 
                     ;; Variable Instructions
                     [op:local.get
@@ -223,131 +224,131 @@
                     ;; Memory Instructions
                     [op:i32.load
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i32.load-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i32.load-arg instr))))
                        (memory-load! memory buf ea 4)
                        (bytes->i32 buf 4))]
 
                     [op:i32.load8_s
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i32.load8_s-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i32.load8_s-arg instr))))
                        (memory-load! memory buf ea 1)
                        (bytes->i32 buf 1))]
 
                     [op:i32.load8_u
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i32.load8_u-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i32.load8_u-arg instr))))
                        (memory-load! memory buf ea 1)
                        (bytes->u32 buf 1))]
 
                     [op:i32.load16_s
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i32.load16_s-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i32.load16_s-arg instr))))
                        (memory-load! memory buf ea 2)
                        (bytes->i32 buf 2))]
 
                     [op:i32.load16_u
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i32.load16_u-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i32.load16_u-arg instr))))
                        (memory-load! memory buf ea 2)
                        (bytes->u32 buf 2))]
 
                     [op:i64.load
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i64.load-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i64.load-arg instr))))
                        (memory-load! memory buf ea 8)
                        (bytes->i64 buf 8))]
 
                     [op:i64.load8_s
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i64.load8_s-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i64.load8_s-arg instr))))
                        (memory-load! memory buf ea 1)
                        (bytes->i64 buf 1))]
 
                     [op:i64.load8_u
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i64.load8_u-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i64.load8_u-arg instr))))
                        (memory-load! memory buf ea 1)
                        (bytes->u64 buf 1))]
 
                     [op:i64.load16_s
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i64.load16_s-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i64.load16_s-arg instr))))
                        (memory-load! memory buf ea 2)
                        (bytes->i64 buf 2))]
 
                     [op:i64.load16_u
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i64.load16_u-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i64.load16_u-arg instr))))
                        (memory-load! memory buf ea 2)
                        (bytes->u64 buf 2))]
 
                     [op:i64.load32_s
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i64.load32_s-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i64.load32_s-arg instr))))
                        (memory-load! memory buf ea 4)
                        (bytes->i64 buf 4))]
 
                     [op:i64.load32_u
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:i64.load32_u-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i64.load32_u-arg instr))))
                        (memory-load! memory buf ea 4)
                        (bytes->u64 buf 4))]
 
                     [op:f32.load
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:f32.load-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:f32.load-arg instr))))
                        (memory-load! memory buf ea 4)
                        (bytes->f32 buf))]
 
                     [op:f64.load
                      (smatch [addr]
-                       (define ea (+ addr (memarg-offset (instr:f64.load-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:f64.load-arg instr))))
                        (memory-load! memory buf ea 8)
                        (bytes->f64 buf))]
 
                     [op:i32.store
                      (sconsume [n addr]
-                       (define ea (+ addr (memarg-offset (instr:i32.store-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i32.store-arg instr))))
                        (memory-store! memory ea (i32->bytes n buf) 4))]
 
                     [op:i32.store8
                      (sconsume [n addr]
-                       (define ea (+ addr (memarg-offset (instr:i32.store8-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i32.store8-arg instr))))
                        (memory-store! memory ea (i32->bytes n buf) 1))]
 
                     [op:i32.store16
                      (sconsume [n addr]
-                       (define ea (+ addr (memarg-offset (instr:i32.store16-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i32.store16-arg instr))))
                        (memory-store! memory ea (i32->bytes n buf) 2))]
 
                     [op:i64.store
                      (sconsume [n addr]
-                       (define ea (+ addr (memarg-offset (instr:i64.store-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i64.store-arg instr))))
                        (memory-store! memory ea (i64->bytes n buf) 8))]
 
                     [op:i64.store8
                      (sconsume [n addr]
-                       (define ea (+ addr (memarg-offset (instr:i64.store8-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i64.store8-arg instr))))
                        (memory-store! memory ea (i64->bytes n buf) 1))]
 
                     [op:i64.store16
                      (sconsume [n addr]
-                       (define ea (+ addr (memarg-offset (instr:i64.store16-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i64.store16-arg instr))))
                        (memory-store! memory ea (i64->bytes n buf) 2))]
 
                     [op:i64.store32
                      (sconsume [n addr]
-                       (define ea (+ addr (memarg-offset (instr:i64.store32-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:i64.store32-arg instr))))
                        (memory-store! memory ea (i64->bytes n buf) 4))]
 
                     [op:f32.store
                      (sconsume [n addr]
-                       (define ea (+ addr (memarg-offset (instr:f32.store-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:f32.store-arg instr))))
                        (memory-store! memory ea (f32->bytes n buf) 4))]
 
                     [op:f64.store
                      (sconsume [n addr]
-                       (define ea (+ addr (memarg-offset (instr:f64.store-arg instr))))
+                       (define ea (fx+ addr (memarg-offset (instr:f64.store-arg instr))))
                        (memory-store! memory ea (f64->bytes n buf) 8))]
 
                     [op:memory.size
@@ -495,7 +496,7 @@
 
                     [else (trap "~e not implemented" instr)]))
 
-                (define next-pc (add1 pc))
+                (define next-pc (fx+ pc 1))
                 (cond
                   [break? (values return-label new-stack)]
                   [(= next-pc (vector-length instrs)) (values #f new-stack)]
@@ -503,9 +504,11 @@
        stack])))
 
 (define (split-at ys pos)
-  (for/fold ([xs null] [ys ys] #:result (values (reverse xs) ys))
-            ([_ (in-range pos)])
-    (values (cons (car ys) xs) (cdr ys))))
+  (if (fx= pos 0)
+      (values null ys)
+      (for/fold ([xs null] [ys ys] #:result (values (reverse xs) ys))
+                ([_ (in-range pos)])
+        (values (cons (car ys) xs) (cdr ys)))))
 
 
 ;; store ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
