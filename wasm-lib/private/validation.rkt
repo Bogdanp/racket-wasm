@@ -173,16 +173,16 @@
                      [return (functype-results type)]))
       (validate-code func-c here (code-instrs code)))))
 
-(define (validate-block c who type instrs)
+(define (validate-block c who type instrs [param-stack null])
   (define block-c
     (struct-copy ctx c
                  [labels (cons type (ctx-labels c))]
                  [return (functype-results type)]))
-  (validate-code block-c who instrs))
+  (validate-code block-c who instrs param-stack))
 
-(define (validate-code c who instrs)
+(define (validate-code c who instrs [param-stack null])
   (define stack
-    (for/fold ([stack null])
+    (for/fold ([stack param-stack])
               ([instr (in-vector instrs)])
       (validate-instr c (cons instr who) stack instr)))
 
@@ -227,27 +227,32 @@
     ;; [t1*] -> [t2*]
     [op:block
      (define type (instr:block-type instr))
+     (define-values (param-stack remaining-stack)
+       (apply pop* who stack (functype-params type)))
      (define block-code (instr:block-code instr))
-     (when block-code (validate-block c who type block-code))
-     (apply push stack (functype-results type))]
+     (when block-code (validate-block c who type block-code param-stack))
+     (apply push remaining-stack (functype-results type))]
 
     ;; [t1*] -> [t2*]
     [op:loop
      (define type (instr:loop-type instr))
+     (define-values (param-stack remaining-stack)
+       (apply pop* who stack (functype-params type)))
      (define loop-code (instr:loop-code instr))
-     (when loop-code
-       (validate-block c who type loop-code))
-     (apply push stack (functype-results type))]
+     (when loop-code (validate-block c who type loop-code param-stack))
+     (apply push remaining-stack (functype-results type))]
 
     ;; [t1* i32] -> [t2*]
     [op:if
+     (define s (pop who stack i32))
      (define type (instr:if-type instr))
+     (define-values (param-stack remaining-stack)
+       (apply pop* who s (functype-params type)))
      (define then-code (instr:if-then-code instr))
      (define else-code (instr:if-else-code instr))
-     (define s (pop who stack i32))
-     (when then-code (validate-block c who type then-code))
-     (when else-code (validate-block c who type else-code))
-     (apply push s (functype-results type))]
+     (when then-code (validate-block c who type then-code param-stack))
+     (when else-code (validate-block c who type else-code param-stack))
+     (apply push remaining-stack (functype-results type))]
 
     ;; [t1*] -> [t2*]
     [op:call

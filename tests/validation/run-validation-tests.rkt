@@ -33,6 +33,8 @@
        (test-case (format "~a error message" path)
          (check-equal? scrubbed-validation-error expected-validation-error))]
       [else
+       (displayln out-path)
+       (displayln scrubbed-validation-error)
        (with-output-to-file out-path
          #:exists 'replace
          (lambda ()

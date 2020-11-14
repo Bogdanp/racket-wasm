@@ -1,0 +1,1 @@
+(#f . "arity error\n  expected: [i32 i64]\n  found: []\n  in: loop-params.wasm\n  offset: 29 (0x1d)\n  at: (instr:loop #<loc> (functype '(i64 i32) '()) (vector (instr:br #<loc> 0)))\n  within: (funcidx 0)")
