@@ -406,11 +406,19 @@
     (cond
       [(eq? instr 'end)
        (define len (length instrs))
-       (define res (make-vector len))
-       (for ([instr (in-list instrs)]
-             [idx (in-range (sub1 len) -1 -1)])
-         (vector-set! res idx instr))
-       (values res b)]
+       (cond
+         [(zero? len)
+          (values (vector) b)]
+
+         [(= len 1)
+          (values (vector (car instrs)) b)]
+
+         [else
+          (define res (make-vector len))
+          (for ([instr (in-list instrs)]
+                [idx (in-range (sub1 len) -1 -1)])
+            (vector-set! res idx instr))
+          (values res b)])]
       [else
        (loop (cons instr instrs))])))
 
@@ -552,7 +560,8 @@
   (read-bytes (read-u32! buf in) in))
 
 (define (read-vectorof! f buf in)
-  (for/vector ([_ (in-range (read-u32! buf in))])
+  (define len (read-u32! buf in))
+  (for/vector #:length len ([_ (in-range len)])
     (f buf in)))
 
 (define (skip-n-bytes! what buf n in)
