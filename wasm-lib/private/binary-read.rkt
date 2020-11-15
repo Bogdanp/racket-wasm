@@ -78,21 +78,24 @@
 
 (define (read-section! buf in types)
   (parameterize ([current-types types])
-    (match (read-byte in)
-      [(? eof-object?) eof]
-      [0 (read-custom-section! buf in)]
-      [1 (read-type-section! buf in)]
-      [2 (read-import-section! buf in)]
-      [3 (read-function-section! buf in)]
-      [4 (read-table-section! buf in)]
-      [5 (read-memory-section! buf in)]
-      [6 (read-global-section! buf in)]
-      [7 (read-export-section! buf in)]
-      [8 (read-start-section! buf in)]
-      [9 (read-element-section! buf in)]
-      [10 (read-code-section! buf in)]
-      [11 (read-data-section! buf in)]
-      [idx (oops! in "unexpected section idx ~a" idx)])))
+    (define idx (read-byte in))
+    (case idx
+      [(0) (read-custom-section! buf in)]
+      [(1) (read-type-section! buf in)]
+      [(2) (read-import-section! buf in)]
+      [(3) (read-function-section! buf in)]
+      [(4) (read-table-section! buf in)]
+      [(5) (read-memory-section! buf in)]
+      [(6) (read-global-section! buf in)]
+      [(7) (read-export-section! buf in)]
+      [(8) (read-start-section! buf in)]
+      [(9) (read-element-section! buf in)]
+      [(10) (read-code-section! buf in)]
+      [(11) (read-data-section! buf in)]
+      [else
+       (cond
+         [(eof-object? idx) eof]
+         [else (oops! in "unexpected section idx ~a" idx)])])))
 
 (define (read-custom-section! buf in)
   (define len (read-u32! buf in))
@@ -158,9 +161,16 @@
   (locals (read-u32! buf in)
           (read-valtype! buf in)))
 
-(define (read-expr! buf in [ender? (λ (b) (= b #x0B))])
-  (define source-name (object-name in))
+(define (expr-ender? b)
+  (= b #x0B))
+
+(define (if-expr-ender? b)
+  (or (= b #x05)
+      (= b #x0B)))
+
+(define (read-expr! buf in [ender? expr-ender?])
   (define track-srcloc? (track-source-location?))
+  (define source-name (and track-srcloc? (object-name in)))
   (let loop ([instrs null])
     (define b (read-byte! "instr" buf in))
     (define l
@@ -182,9 +192,7 @@
                    (instr:loop l type code))]
 
         [op:if (let-values ([(type) (read-blocktype! buf in)]
-                            [(then-code end) (read-expr! buf in (lambda (opcode)
-                                                                  (or (= opcode #x05)
-                                                                      (= opcode #x0B))))])
+                            [(then-code end) (read-expr! buf in if-expr-ender?)])
                  (instr:if l type then-code (and (= end #x05)
                                                  (let-values ([(else-code _) (read-expr! buf in)])
                                                    else-code))))]
@@ -397,9 +405,17 @@
          (cond
            [(ender? b) 'end]
            [else (oops! in "unexpected opcode: ~s" b)])]))
-    (if (eq? instr 'end)
-        (values (list->vector (reverse instrs)) b)
-        (loop (cons instr instrs)))))
+
+    (cond
+      [(eq? instr 'end)
+       (define len (length instrs))
+       (define res (make-vector len))
+       (for ([instr (in-list instrs)]
+             [idx (in-range (sub1 len) -1 -1)])
+         (vector-set! res idx instr))
+       (values res b)]
+      [else
+       (loop (cons instr instrs))])))
 
 (define (read-blocktype! buf in)
   (case (peek-byte in)
@@ -440,20 +456,22 @@
   (global type code))
 
 (define (read-importdesc! buf in)
-  (match (read-byte! "importdesc" buf in)
-    [#x00 (typeidx (read-u32! buf in))]
-    [#x01 (read-tabletype! buf in)]
-    [#x02 (read-memtype! buf in)]
-    [#x03 (read-globaltype! buf in)]
-    [b (oops! in "unexpected value while reading importdesc: ~s" b)]))
+  (define b (read-byte! "importdesc" buf in))
+  (case b
+    [(#x00) (typeidx (read-u32! buf in))]
+    [(#x01) (read-tabletype! buf in)]
+    [(#x02) (read-memtype! buf in)]
+    [(#x03) (read-globaltype! buf in)]
+    [else (oops! in "unexpected value while reading importdesc: ~s" b)]))
 
 (define (read-exportdesc! buf in)
-  (match (read-byte! "exportdesc" buf in)
-    [#x00 (read-funcidx! buf in)]
-    [#x01 (read-tableidx! buf in)]
-    [#x02 (read-memidx! buf in)]
-    [#x03 (read-globalidx! buf in)]
-    [b (oops! in "unexpected value while reading exportdesc: ~s" b)]))
+  (define b (read-byte! "exportdesc" buf in))
+  (case b
+    [(#x00) (read-funcidx! buf in)]
+    [(#x01) (read-tableidx! buf in)]
+    [(#x02) (read-memidx! buf in)]
+    [(#x03) (read-globalidx! buf in)]
+    [else (oops! in "unexpected value while reading exportdesc: ~s" b)]))
 
 (define (read-elem! buf in)
   (define idx (read-u32! buf in))
@@ -485,29 +503,33 @@
               (read-mut! buf in)))
 
 (define (read-elemtype! buf in)
-  (match (read-byte! "elemtype" buf in)
-    [#x70 funcref]
-    [b (oops! in "unexpected value while reading elemtype: ~s" b)]))
+  (define b (read-byte! "elemtype" buf in))
+  (case b
+    [(#x70) funcref]
+    [else (oops! in "unexpected value while reading elemtype: ~s" b)]))
 
 (define (read-limits! buf in)
-  (match (read-byte! "limits" buf in)
-    [#x00 (limits (read-u32! buf in) #f)]
-    [#x01 (limits (read-u32! buf in) (read-u32! buf in))]
-    [b (oops! in "unexpected value while reading limits: ~s" b)]))
+  (define b (read-byte! "limits" buf in))
+  (case b
+    [(#x00) (limits (read-u32! buf in) #f)]
+    [(#x01) (limits (read-u32! buf in) (read-u32! buf in))]
+    [else (oops! in "unexpected value while reading limits: ~s" b)]))
 
 (define (read-valtype! buf in)
-  (match (read-byte! "valtype" buf in)
-    [#x7F i32]
-    [#x7E i64]
-    [#x7D f32]
-    [#x7C f64]
-    [b (oops! in "unexpected value while reading valtype: ~s" b)]))
+  (define b (read-byte! "valtype" buf in))
+  (case b
+    [(#x7F) i32]
+    [(#x7E) i64]
+    [(#x7D) f32]
+    [(#x7C) f64]
+    [else (oops! in "unexpected value while reading valtype: ~s" b)]))
 
 (define (read-mut! buf in)
-  (match (read-byte! "mut" buf in)
-    [#x00 #f]
-    [#x01 #t]
-    [b (oops! in "unexpected value while reading mut: ~s" b)]))
+  (define b (read-byte! "mut" buf in))
+  (case b
+    [(#x00) #f]
+    [(#x01) #t]
+    [else (oops! in "unexpected value while reading mut: ~s" b)]))
 
 (define (read-functype! buf in)
   (define b (read-byte! "functype" buf in))
@@ -518,20 +540,23 @@
   (functype params results))
 
 (define (read-restype! buf in)
-  (reverse (read-listof! read-valtype! buf in)))
+  (let loop ([types null]
+             [remaining (read-u32! buf in)])
+    (cond
+      [(zero? remaining) types]
+      [else (loop (cons (read-valtype! buf in) types) (sub1 remaining))])))
 
 
 ;; core readers ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (define (skip-len! buf in)
-  (read-u32! buf in))
+  (let loop ()
+    (define b (read-byte! "length" buf in))
+    (unless (zero? (bitwise-and b #x80))
+      (loop))))
 
 (define (read-bytevector! buf in)
   (read-bytes (read-u32! buf in) in))
-
-(define (read-listof! f buf in)
-  (for/list ([_ (in-range (read-u32! buf in))])
-    (f buf in)))
 
 (define (read-vectorof! f buf in)
   (for/vector ([_ (in-range (read-u32! buf in))])
@@ -579,10 +604,12 @@
       [(zero? (bitwise-and b #x40)) new-n]
       [else (bitwise-ior new-n (arithmetic-shift -1 new-shift))])))
 
+(define u32max (sub1 (expt 2 32)))
+
 (define (read-u32! buf in)
   (define n (read-uint! buf in))
   (begin0 n
-    (when (> n (sub1 (expt 2 32)))
+    (when (> n u32max)
       (oops! in "unsigned 32bit integer out of bounds"))))
 
 (define (read-i32! buf in)
