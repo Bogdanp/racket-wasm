@@ -45,8 +45,8 @@
           [(loc source pos)
            (printf "  in: ~a~n" source)
            (printf "  offset: ~a (0x~a)~n" pos (number->string pos 16))]
-          [(loc-unknown source)
-           (printf "  in: ~a~n" source)]))
+          [#f
+           (void)]))
       (printf "  at: ~v" (car whos))
       (for ([who (in-list (cdr whos))])
         (newline)
@@ -300,141 +300,118 @@
 
     ;; Memory Instructions
     [op:i32.load8_s
-     (define arg (instr:i32.load8_s-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 8)
+     (check-alignment who (instr:i32.load8_s-align instr) 8)
      (validate-type who stack (instruction-type instr))]
 
     [op:i32.load8_u
-     (define arg (instr:i32.load8_u-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 8)
+     (check-alignment who (instr:i32.load8_u-align instr) 8)
      (validate-type who stack (instruction-type instr))]
 
     [op:i64.load8_s
-     (define arg (instr:i64.load8_s-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 8)
+     (check-alignment who (instr:i64.load8_s-align instr) 8)
      (validate-type who stack (instruction-type instr))]
 
     [op:i64.load8_u
-     (define arg (instr:i64.load8_u-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 8)
+     (check-alignment who (instr:i64.load8_u-align instr) 8)
      (validate-type who stack (instruction-type instr))]
 
     [op:i32.store8
-     (define arg (instr:i32.store8-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 8)
+     (check-alignment who (instr:i32.store8-align instr) 8)
      (validate-type who stack (instruction-type instr))]
 
     [op:i64.store8
-     (define arg (instr:i64.store8-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 8)
+     (check-alignment who (instr:i64.store8-align instr) 8)
      (validate-type who stack (instruction-type instr))]
 
     [op:i32.load16_s
-     (define arg (instr:i32.load16_s-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 16)
+     (check-alignment who (instr:i32.load16_s-align instr) 16)
      (validate-type who stack (instruction-type instr))]
 
     [op:i32.load16_u
-     (define arg (instr:i32.load16_u-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 16)
+     (check-alignment who (instr:i32.load16_u-align instr) 16)
      (validate-type who stack (instruction-type instr))]
 
     [op:i64.load16_s
-     (define arg (instr:i64.load16_s-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 16)
+     (check-alignment who (instr:i64.load16_s-align instr) 16)
      (validate-type who stack (instruction-type instr))]
 
     [op:i64.load16_u
-     (define arg (instr:i64.load16_u-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 16)
+     (check-alignment who (instr:i64.load16_u-align instr) 16)
      (validate-type who stack (instruction-type instr))]
 
     [op:i32.store16
-     (define arg (instr:i32.store16-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 16)
+     (check-alignment who (instr:i32.store16-align instr) 16)
      (validate-type who stack (instruction-type instr))]
 
     [op:i64.store16
-     (define arg (instr:i64.store16-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 16)
+     (check-alignment who (instr:i64.store16-align instr) 16)
      (validate-type who stack (instruction-type instr))]
 
     [op:i32.load
-     (define arg (instr:i32.load-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 32)
+     (check-alignment who (instr:i32.load-align instr) 32)
      (validate-type who stack (instruction-type instr))]
 
     [op:f32.load
-     (define arg (instr:f32.load-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 32)
+     (check-alignment who (instr:f32.load-align instr) 32)
      (validate-type who stack (instruction-type instr))]
 
     [op:i64.load32_s
-     (define arg (instr:i64.load32_s-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 32)
+     (check-alignment who (instr:i64.load32_s-align instr) 32)
      (validate-type who stack (instruction-type instr))]
 
     [op:i64.load32_u
-     (define arg (instr:i64.load32_u-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 32)
+     (check-alignment who (instr:i64.load32_u-align instr) 32)
      (validate-type who stack (instruction-type instr))]
 
     [op:i32.store
-     (define arg (instr:i32.store-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 32)
+     (check-alignment who (instr:i32.store-align instr) 32)
      (validate-type who stack (instruction-type instr))]
 
     [op:f32.store
-     (define arg (instr:f32.store-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 32)
+     (check-alignment who (instr:f32.store-align instr) 32)
      (validate-type who stack (instruction-type instr))]
 
     [op:i64.store32
-     (define arg (instr:i64.store32-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 32)
+     (check-alignment who (instr:i64.store32-align instr) 32)
      (validate-type who stack (instruction-type instr))]
 
     [op:i64.load
-     (define arg (instr:i64.load-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 64)
+     (check-alignment who (instr:i64.load-align instr) 64)
      (validate-type who stack (instruction-type instr))]
 
     [op:f64.load
-     (define arg (instr:f64.load-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 64)
+     (check-alignment who (instr:f64.load-align instr) 64)
      (validate-type who stack (instruction-type instr))]
 
     [op:i64.store
-     (define arg (instr:i64.store-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 64)
+     (check-alignment who (instr:i64.store-align instr) 64)
      (validate-type who stack (instruction-type instr))]
 
     [op:f64.store
-     (define arg (instr:f64.store-arg instr))
      (memory-ref c who 0)
-     (check-alignment who arg 64)
+     (check-alignment who (instr:f64.store-align instr) 64)
      (validate-type who stack (instruction-type instr))]
 
     [op:memory.size
@@ -480,8 +457,7 @@
       (apply pop who s (functype-params ft)))
     (append (functype-results ft) remaining-stack))
 
-  (define (check-alignment who arg bits)
-    (define align (memarg-align arg))
+  (define (check-alignment who align bits)
     (unless (<= (expt 2 align) (quotient bits 8))
       (raise-validation-error who "invalid alignment ~v" align))))
 

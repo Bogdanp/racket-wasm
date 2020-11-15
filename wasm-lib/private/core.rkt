@@ -93,7 +93,6 @@
 (define-record tabletype (elemtype limits))
 (define-record memtype (limits))
 (define-record globaltype (valtype mutable?))
-(define-record memarg (align offset))
 (define-record import (mod name description))
 (define-record export (name description))
 (define-record global (type code))
@@ -207,29 +206,29 @@
   [#x24 global.set (idx) : forall t [t] -> [t]]
 
   ;; Memory instructions
-  [#x28 i32.load     (arg) : [i32    ] -> [i32]]
-  [#x29 i64.load     (arg) : [i32    ] -> [i64]]
-  [#x2A f32.load     (arg) : [i32    ] -> [f32]]
-  [#x2B f64.load     (arg) : [i32    ] -> [f64]]
-  [#x2C i32.load8_s  (arg) : [i32    ] -> [i32]]
-  [#x2D i32.load8_u  (arg) : [i32    ] -> [i32]]
-  [#x2E i32.load16_s (arg) : [i32    ] -> [i32]]
-  [#x2F i32.load16_u (arg) : [i32    ] -> [i32]]
-  [#x30 i64.load8_s  (arg) : [i32    ] -> [i64]]
-  [#x31 i64.load8_u  (arg) : [i32    ] -> [i64]]
-  [#x32 i64.load16_s (arg) : [i32    ] -> [i64]]
-  [#x33 i64.load16_u (arg) : [i32    ] -> [i64]]
-  [#x34 i64.load32_s (arg) : [i32    ] -> [i64]]
-  [#x35 i64.load32_u (arg) : [i32    ] -> [i64]]
-  [#x36 i32.store    (arg) : [i32 i32] -> [   ]]
-  [#x37 i64.store    (arg) : [i32 i64] -> [   ]]
-  [#x38 f32.store    (arg) : [i32 f32] -> [   ]]
-  [#x39 f64.store    (arg) : [i32 f64] -> [   ]]
-  [#x3A i32.store8   (arg) : [i32 i32] -> [   ]]
-  [#x3B i32.store16  (arg) : [i32 i32] -> [   ]]
-  [#x3C i64.store8   (arg) : [i32 i64] -> [   ]]
-  [#x3D i64.store16  (arg) : [i32 i64] -> [   ]]
-  [#x3E i64.store32  (arg) : [i32 i64] -> [   ]]
+  [#x28 i32.load     (align offset) : [i32    ] -> [i32]]
+  [#x29 i64.load     (align offset) : [i32    ] -> [i64]]
+  [#x2A f32.load     (align offset) : [i32    ] -> [f32]]
+  [#x2B f64.load     (align offset) : [i32    ] -> [f64]]
+  [#x2C i32.load8_s  (align offset) : [i32    ] -> [i32]]
+  [#x2D i32.load8_u  (align offset) : [i32    ] -> [i32]]
+  [#x2E i32.load16_s (align offset) : [i32    ] -> [i32]]
+  [#x2F i32.load16_u (align offset) : [i32    ] -> [i32]]
+  [#x30 i64.load8_s  (align offset) : [i32    ] -> [i64]]
+  [#x31 i64.load8_u  (align offset) : [i32    ] -> [i64]]
+  [#x32 i64.load16_s (align offset) : [i32    ] -> [i64]]
+  [#x33 i64.load16_u (align offset) : [i32    ] -> [i64]]
+  [#x34 i64.load32_s (align offset) : [i32    ] -> [i64]]
+  [#x35 i64.load32_u (align offset) : [i32    ] -> [i64]]
+  [#x36 i32.store    (align offset) : [i32 i32] -> [   ]]
+  [#x37 i64.store    (align offset) : [i32 i64] -> [   ]]
+  [#x38 f32.store    (align offset) : [i32 f32] -> [   ]]
+  [#x39 f64.store    (align offset) : [i32 f64] -> [   ]]
+  [#x3A i32.store8   (align offset) : [i32 i32] -> [   ]]
+  [#x3B i32.store16  (align offset) : [i32 i32] -> [   ]]
+  [#x3C i64.store8   (align offset) : [i32 i64] -> [   ]]
+  [#x3D i64.store16  (align offset) : [i32 i64] -> [   ]]
+  [#x3E i64.store32  (align offset) : [i32 i64] -> [   ]]
 
   [#x3F memory.size (idx) : [   ] -> [i32]]
   [#x40 memory.grow (idx) : [i32] -> [i32]]

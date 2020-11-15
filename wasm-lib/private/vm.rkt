@@ -227,131 +227,131 @@
                     ;; Memory Instructions
                     [op:i32.load
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i32.load-arg instr))))
+                       (define ea (fx+ addr (instr:i32.load-offset instr)))
                        (memory-load! memory buf ea 4)
                        (bytes->i32 buf 4))]
 
                     [op:i32.load8_s
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i32.load8_s-arg instr))))
+                       (define ea (fx+ addr (instr:i32.load8_s-offset instr)))
                        (memory-load! memory buf ea 1)
                        (bytes->i32 buf 1))]
 
                     [op:i32.load8_u
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i32.load8_u-arg instr))))
+                       (define ea (fx+ addr (instr:i32.load8_u-offset instr)))
                        (memory-load! memory buf ea 1)
                        (bytes->u32 buf 1))]
 
                     [op:i32.load16_s
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i32.load16_s-arg instr))))
+                       (define ea (fx+ addr (instr:i32.load16_s-offset instr)))
                        (memory-load! memory buf ea 2)
                        (bytes->i32 buf 2))]
 
                     [op:i32.load16_u
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i32.load16_u-arg instr))))
+                       (define ea (fx+ addr (instr:i32.load16_u-offset instr)))
                        (memory-load! memory buf ea 2)
                        (bytes->u32 buf 2))]
 
                     [op:i64.load
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i64.load-arg instr))))
+                       (define ea (fx+ addr (instr:i64.load-offset instr)))
                        (memory-load! memory buf ea 8)
                        (bytes->i64 buf 8))]
 
                     [op:i64.load8_s
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i64.load8_s-arg instr))))
+                       (define ea (fx+ addr (instr:i64.load8_s-offset instr)))
                        (memory-load! memory buf ea 1)
                        (bytes->i64 buf 1))]
 
                     [op:i64.load8_u
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i64.load8_u-arg instr))))
+                       (define ea (fx+ addr (instr:i64.load8_u-offset instr)))
                        (memory-load! memory buf ea 1)
                        (bytes->u64 buf 1))]
 
                     [op:i64.load16_s
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i64.load16_s-arg instr))))
+                       (define ea (fx+ addr (instr:i64.load16_s-offset instr)))
                        (memory-load! memory buf ea 2)
                        (bytes->i64 buf 2))]
 
                     [op:i64.load16_u
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i64.load16_u-arg instr))))
+                       (define ea (fx+ addr (instr:i64.load16_u-offset instr)))
                        (memory-load! memory buf ea 2)
                        (bytes->u64 buf 2))]
 
                     [op:i64.load32_s
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i64.load32_s-arg instr))))
+                       (define ea (fx+ addr (instr:i64.load32_s-offset instr)))
                        (memory-load! memory buf ea 4)
                        (bytes->i64 buf 4))]
 
                     [op:i64.load32_u
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i64.load32_u-arg instr))))
+                       (define ea (fx+ addr (instr:i64.load32_u-offset instr)))
                        (memory-load! memory buf ea 4)
                        (bytes->u64 buf 4))]
 
                     [op:f32.load
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:f32.load-arg instr))))
+                       (define ea (fx+ addr (instr:f32.load-offset instr)))
                        (memory-load! memory buf ea 4)
                        (bytes->f32 buf))]
 
                     [op:f64.load
                      (smatch [addr]
-                       (define ea (fx+ addr (memarg-offset (instr:f64.load-arg instr))))
+                       (define ea (fx+ addr (instr:f64.load-offset instr)))
                        (memory-load! memory buf ea 8)
                        (bytes->f64 buf))]
 
                     [op:i32.store
                      (sconsume [n addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i32.store-arg instr))))
+                       (define ea (fx+ addr (instr:i32.store-offset instr)))
                        (memory-store! memory ea (i32->bytes n buf) 4))]
 
                     [op:i32.store8
                      (sconsume [n addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i32.store8-arg instr))))
+                       (define ea (fx+ addr (instr:i32.store8-offset instr)))
                        (memory-store! memory ea (i32->bytes n buf) 1))]
 
                     [op:i32.store16
                      (sconsume [n addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i32.store16-arg instr))))
+                       (define ea (fx+ addr (instr:i32.store16-offset instr)))
                        (memory-store! memory ea (i32->bytes n buf) 2))]
 
                     [op:i64.store
                      (sconsume [n addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i64.store-arg instr))))
+                       (define ea (fx+ addr (instr:i64.store-offset instr)))
                        (memory-store! memory ea (i64->bytes n buf) 8))]
 
                     [op:i64.store8
                      (sconsume [n addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i64.store8-arg instr))))
+                       (define ea (fx+ addr (instr:i64.store8-offset instr)))
                        (memory-store! memory ea (i64->bytes n buf) 1))]
 
                     [op:i64.store16
                      (sconsume [n addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i64.store16-arg instr))))
+                       (define ea (fx+ addr (instr:i64.store16-offset instr)))
                        (memory-store! memory ea (i64->bytes n buf) 2))]
 
                     [op:i64.store32
                      (sconsume [n addr]
-                       (define ea (fx+ addr (memarg-offset (instr:i64.store32-arg instr))))
+                       (define ea (fx+ addr (instr:i64.store32-offset instr)))
                        (memory-store! memory ea (i64->bytes n buf) 4))]
 
                     [op:f32.store
                      (sconsume [n addr]
-                       (define ea (fx+ addr (memarg-offset (instr:f32.store-arg instr))))
+                       (define ea (fx+ addr (instr:f32.store-offset instr)))
                        (memory-store! memory ea (f32->bytes n buf) 4))]
 
                     [op:f64.store
                      (sconsume [n addr]
-                       (define ea (fx+ addr (memarg-offset (instr:f64.store-arg instr))))
+                       (define ea (fx+ addr (instr:f64.store-offset instr)))
                        (memory-store! memory ea (f64->bytes n buf) 8))]
 
                     [op:memory.size

@@ -173,10 +173,7 @@
   (define source-name (and track-srcloc? (object-name in)))
   (let loop ([instrs null])
     (define b (read-byte! "instr" buf in))
-    (define l
-      (if track-srcloc?
-          (loc source-name (file-position* in))
-          (loc-unknown source-name)))
+    (define l (and track-srcloc? (loc source-name (file-position* in))))
     (define instr
       (opcase b
         ;; Control instructions
@@ -218,29 +215,29 @@
         [op:global.set (instr:global.set l (read-u32! buf in))]
 
         ;; Memory instructions
-        [op:i32.load     (instr:i32.load     l (read-memarg! buf in))]
-        [op:i64.load     (instr:i64.load     l (read-memarg! buf in))]
-        [op:f32.load     (instr:f32.load     l (read-memarg! buf in))]
-        [op:f64.load     (instr:f64.load     l (read-memarg! buf in))]
-        [op:i32.load8_s  (instr:i32.load8_s  l (read-memarg! buf in))]
-        [op:i32.load8_u  (instr:i32.load8_u  l (read-memarg! buf in))]
-        [op:i32.load16_s (instr:i32.load16_s l (read-memarg! buf in))]
-        [op:i32.load16_u (instr:i32.load16_u l (read-memarg! buf in))]
-        [op:i64.load8_s  (instr:i64.load8_s  l (read-memarg! buf in))]
-        [op:i64.load8_u  (instr:i64.load8_u  l (read-memarg! buf in))]
-        [op:i64.load16_s (instr:i64.load16_s l (read-memarg! buf in))]
-        [op:i64.load16_u (instr:i64.load16_u l (read-memarg! buf in))]
-        [op:i64.load32_s (instr:i64.load32_s l (read-memarg! buf in))]
-        [op:i64.load32_u (instr:i64.load32_u l (read-memarg! buf in))]
-        [op:i32.store    (instr:i32.store    l (read-memarg! buf in))]
-        [op:i64.store    (instr:i64.store    l (read-memarg! buf in))]
-        [op:f32.store    (instr:f32.store    l (read-memarg! buf in))]
-        [op:f64.store    (instr:f64.store    l (read-memarg! buf in))]
-        [op:i32.store8   (instr:i32.store8   l (read-memarg! buf in))]
-        [op:i32.store16  (instr:i32.store16  l (read-memarg! buf in))]
-        [op:i64.store8   (instr:i64.store8   l (read-memarg! buf in))]
-        [op:i64.store16  (instr:i64.store16  l (read-memarg! buf in))]
-        [op:i64.store32  (instr:i64.store32  l (read-memarg! buf in))]
+        [op:i32.load     (instr:i32.load     l (read-u32! buf in) (read-u32! buf in))]
+        [op:i64.load     (instr:i64.load     l (read-u32! buf in) (read-u32! buf in))]
+        [op:f32.load     (instr:f32.load     l (read-u32! buf in) (read-u32! buf in))]
+        [op:f64.load     (instr:f64.load     l (read-u32! buf in) (read-u32! buf in))]
+        [op:i32.load8_s  (instr:i32.load8_s  l (read-u32! buf in) (read-u32! buf in))]
+        [op:i32.load8_u  (instr:i32.load8_u  l (read-u32! buf in) (read-u32! buf in))]
+        [op:i32.load16_s (instr:i32.load16_s l (read-u32! buf in) (read-u32! buf in))]
+        [op:i32.load16_u (instr:i32.load16_u l (read-u32! buf in) (read-u32! buf in))]
+        [op:i64.load8_s  (instr:i64.load8_s  l (read-u32! buf in) (read-u32! buf in))]
+        [op:i64.load8_u  (instr:i64.load8_u  l (read-u32! buf in) (read-u32! buf in))]
+        [op:i64.load16_s (instr:i64.load16_s l (read-u32! buf in) (read-u32! buf in))]
+        [op:i64.load16_u (instr:i64.load16_u l (read-u32! buf in) (read-u32! buf in))]
+        [op:i64.load32_s (instr:i64.load32_s l (read-u32! buf in) (read-u32! buf in))]
+        [op:i64.load32_u (instr:i64.load32_u l (read-u32! buf in) (read-u32! buf in))]
+        [op:i32.store    (instr:i32.store    l (read-u32! buf in) (read-u32! buf in))]
+        [op:i64.store    (instr:i64.store    l (read-u32! buf in) (read-u32! buf in))]
+        [op:f32.store    (instr:f32.store    l (read-u32! buf in) (read-u32! buf in))]
+        [op:f64.store    (instr:f64.store    l (read-u32! buf in) (read-u32! buf in))]
+        [op:i32.store8   (instr:i32.store8   l (read-u32! buf in) (read-u32! buf in))]
+        [op:i32.store16  (instr:i32.store16  l (read-u32! buf in) (read-u32! buf in))]
+        [op:i64.store8   (instr:i64.store8   l (read-u32! buf in) (read-u32! buf in))]
+        [op:i64.store16  (instr:i64.store16  l (read-u32! buf in) (read-u32! buf in))]
+        [op:i64.store32  (instr:i64.store32  l (read-u32! buf in) (read-u32! buf in))]
 
         [op:memory.size (instr:memory.size l (read-u32! buf in))]
         [op:memory.grow (instr:memory.grow l (read-u32! buf in))]
@@ -429,10 +426,6 @@
     [else
      (define idx (read-sint! "33bit signed integer" buf in))
      (vector-ref (current-types) idx)]))
-
-(define (read-memarg! buf in)
-  (memarg (read-u32! buf in)
-          (read-u32! buf in)))
 
 (define (read-data! buf in)
   (define idx (read-u32! buf in))
