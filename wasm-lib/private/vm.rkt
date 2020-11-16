@@ -476,8 +476,8 @@
                     [op:i32.trunc_f32_u     (smatch [a] (itrunc32_32_u   a))]
                     [op:i32.trunc_f64_s     (smatch [a] (itrunc32_64_s   a))]
                     [op:i32.trunc_f64_u     (smatch [a] (itrunc32_64_u   a))]
-                    [op:i64.extend_i32_s    (smatch [a] (iextend32_s     a))]
-                    [op:i64.extend_i32_u    (smatch [a] (iextend32_u     a))]
+                    [op:i64.extend_i32_s    (smatch [a] (iextend64_32_s  a))]
+                    [op:i64.extend_i32_u    (smatch [a] (iextend64_32_u  a))]
                     [op:i64.trunc_f32_s     (smatch [a] (itrunc64_32_s   a))]
                     [op:i64.trunc_f32_u     (smatch [a] (itrunc64_32_u   a))]
                     [op:i64.trunc_f64_s     (smatch [a] (itrunc64_64_s   a))]
@@ -496,6 +496,12 @@
                     [op:i64.reinterpret_f64 (smatch [a] (ireinterpret64  a))]
                     [op:f32.reinterpret_i32 (smatch [a] (freinterpret32  a))]
                     [op:f64.reinterpret_i64 (smatch [a] (freinterpret64  a))]
+
+                    [op:i32.extend8_s   (smatch [a] (iextend32_8_s  a))]
+                    [op:i32.extend16_s  (smatch [a] (iextend32_16_s a))]
+                    [op:i64.extend8_s   (smatch [a] (iextend64_8_s  a))]
+                    [op:i64.extend16_s  (smatch [a] (iextend64_16_s a))]
+                    [op:i64.extend32_s  (smatch [a] (iextend64_32_s a))]
 
                     [else (trap "~e not implemented" instr)]))
 

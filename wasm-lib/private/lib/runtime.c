@@ -131,6 +131,14 @@ int32_t iwrap32(int64_t a) {
   return (int32_t)a;
 }
 
+int32_t iextend32_8_s(int8_t a) {
+  return (int32_t)a;
+}
+
+int32_t iextend32_16_s(int16_t a) {
+  return (int32_t)a;
+}
+
 uint32_t itrunc32_32_u(float a) {
   return (uint32_t)trunc(a);
 }
@@ -273,11 +281,19 @@ int64_t ipopcnt64(int64_t a) {
   return __builtin_popcount(a);
 }
 
-int64_t iextend32_u(uint32_t a) {
+int64_t iextend64_8_s(int8_t a) {
   return (int64_t)a;
 }
 
-int64_t iextend32_s(int32_t a) {
+int64_t iextend64_16_s(int16_t a) {
+  return (int64_t)a;
+}
+
+int64_t iextend64_32_u(uint32_t a) {
+  return (int64_t)a;
+}
+
+int64_t iextend64_32_s(int32_t a) {
   return (int64_t)a;
 }
 
