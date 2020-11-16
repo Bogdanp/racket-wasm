@@ -16,7 +16,8 @@
  vm?
  make-vm
  vm-logger
- vm-ref)
+ vm-ref
+ vm-store)
 
 ;; Debugger hooks ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
@@ -530,6 +531,11 @@
 
 
 ;; store ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+
+(provide
+ (struct-out store)
+ (struct-out externfunc)
+ (struct-out localfunc))
 
 (struct store (functions table memory globals)
   #:transparent)
