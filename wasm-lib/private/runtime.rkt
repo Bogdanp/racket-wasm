@@ -97,13 +97,17 @@
     ieqz32 iclz32 ictz32 ipopcnt32)
 
   (define-i32-cvtops
-    [iwrap32        :   _int64 -> _int32]
-    [iextend32_8_s  :   _int32 -> _int32]
-    [iextend32_16_s :   _int32 -> _int32]
-    [itrunc32_32_u  : _double* -> _int32]
-    [itrunc32_32_s  : _double* -> _int32]
-    [itrunc32_64_u  : _double* -> _int32]
-    [itrunc32_64_s  : _double* -> _int32])
+    [iwrap32           :   _int64 -> _int32]
+    [iextend32_8_s     :   _int32 -> _int32]
+    [iextend32_16_s    :   _int32 -> _int32]
+    [itrunc32_32_u     : _double* -> _int32]
+    [itrunc32_32_s     : _double* -> _int32]
+    [itrunc32_64_u     : _double* -> _int32]
+    [itrunc32_64_s     : _double* -> _int32]
+    [itrunc_sat32_32_u : _double* -> _int32]
+    [itrunc_sat32_32_s : _double* -> _int32]
+    [itrunc_sat32_64_u : _double* -> _int32]
+    [itrunc_sat32_64_s : _double* -> _int32])
 
 
   ;; i64 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -124,14 +128,18 @@
     ieqz64 iclz64 ictz64 ipopcnt64)
 
   (define-i64-cvtops
-    [iextend64_32_u :  _int32  -> _int64]
-    [iextend64_8_s  :  _int32  -> _int64]
-    [iextend64_16_s :  _int32  -> _int64]
-    [iextend64_32_s :  _int32  -> _int64]
-    [itrunc64_32_u  : _double* -> _int64]
-    [itrunc64_32_s  : _double* -> _int64]
-    [itrunc64_64_u  : _double* -> _int64]
-    [itrunc64_64_s  : _double* -> _int64])
+    [iextend64_32_u    :  _int32  -> _int64]
+    [iextend64_8_s     :  _int32  -> _int64]
+    [iextend64_16_s    :  _int32  -> _int64]
+    [iextend64_32_s    :  _int32  -> _int64]
+    [itrunc64_32_u     : _double* -> _int64]
+    [itrunc64_32_s     : _double* -> _int64]
+    [itrunc64_64_u     : _double* -> _int64]
+    [itrunc64_64_s     : _double* -> _int64]
+    [itrunc_sat64_32_u : _double* -> _int64]
+    [itrunc_sat64_32_s : _double* -> _int64]
+    [itrunc_sat64_64_u : _double* -> _int64]
+    [itrunc_sat64_64_s : _double* -> _int64])
 
 
   ;; f32 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;

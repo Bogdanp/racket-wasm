@@ -503,6 +503,15 @@
                     [op:i64.extend16_s  (smatch [a] (iextend64_16_s a))]
                     [op:i64.extend32_s  (smatch [a] (iextend64_32_s a))]
 
+                    [op:i32.trunc_sat_f32_s (smatch [a] (itrunc_sat32_32_s a))]
+                    [op:i32.trunc_sat_f32_u (smatch [a] (itrunc_sat32_32_u a))]
+                    [op:i32.trunc_sat_f64_s (smatch [a] (itrunc_sat32_64_s a))]
+                    [op:i32.trunc_sat_f64_u (smatch [a] (itrunc_sat32_64_u a))]
+                    [op:i64.trunc_sat_f32_s (smatch [a] (itrunc_sat64_32_s a))]
+                    [op:i64.trunc_sat_f32_u (smatch [a] (itrunc_sat64_32_u a))]
+                    [op:i64.trunc_sat_f64_s (smatch [a] (itrunc_sat64_64_s a))]
+                    [op:i64.trunc_sat_f64_u (smatch [a] (itrunc_sat64_64_u a))]
+
                     [else (trap "~e not implemented" instr)]))
 
                 (define next-pc (fx+ pc 1))

@@ -155,6 +155,36 @@ int32_t itrunc32_64_s(double a) {
   return (int32_t)trunc(a);
 }
 
+uint32_t itrunc_sat32_32_u(float a) {
+  float ta = truncf(a);
+  if (ta < 0) {
+    return 0;
+  }
+  return (uint32_t)ta;
+}
+
+int32_t itrunc_sat32_32_s(float a) {
+  return (int32_t)truncf(a);
+}
+
+uint32_t itrunc_sat32_64_u(double a) {
+  double ta = trunc(a);
+  if (ta < 0) {
+    return 0;
+  }
+  return (uint32_t)ta;
+}
+
+int32_t itrunc_sat32_64_s(double a) {
+  double ta = trunc(a);
+  if (ta < -0x80000000) {
+    return -0x80000000;
+  } else if (ta > 0x7FFFFFFF) {
+    return 0x7FFFFFFF;
+  }
+  return (int32_t)ta;
+}
+
 int64_t iadd64(int64_t a, int64_t b) {
   return a + b;
 }
@@ -311,6 +341,36 @@ uint64_t itrunc64_64_u(double a) {
 
 int64_t itrunc64_64_s(double a) {
   return (int64_t)trunc(a);
+}
+
+uint64_t itrunc_sat64_32_u(float a) {
+  float ta = truncf(a);
+  if (ta < 0) {
+    return 0;
+  }
+  return (uint64_t)ta;
+}
+
+int64_t itrunc_sat64_32_s(float a) {
+  return (int64_t)truncf(a);
+}
+
+uint64_t itrunc_sat64_64_u(double a) {
+  double ta = trunc(a);
+  if (ta < 0) {
+    return 0;
+  }
+  return (uint64_t)ta;
+}
+
+int64_t itrunc_sat64_64_s(double a) {
+  double ta = trunc(a);
+  if (ta < -0x8000000000000000) {
+    return -0x8000000000000000;
+  } else if (ta > 0x7FFFFFFFFFFFFFFF) {
+    return 0x7FFFFFFFFFFFFFFF;
+  }
+  return (int64_t)ta;
 }
 
 float fabs32(float a) {
