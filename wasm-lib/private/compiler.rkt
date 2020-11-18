@@ -23,13 +23,16 @@
     (namespace-attach-module caller-ns 'wasm/private/store)
     (define the-mod
       `(module ,name racket/base
-         (require (only-in wasm/private/error trap)
+         (require racket/fixnum
+                  (only-in wasm/private/error trap)
                   wasm/private/memory
                   wasm/private/runtime
                   wasm/private/store)
 
          (define-namespace-anchor $anchor)
 
+         (define $ns (namespace-anchor->namespace $anchor))
+         (define $buf (make-bytes 8))
          (define $table #f)
          (define $memory #f)
 
@@ -72,7 +75,6 @@
              (define local-regs (for/list ([idx (in-range argc (+ argc localc))])
                                   (local-name idx)))
              `(define (,(func-name i) ,@arg-regs)
-                (define $buf (make-bytes 8))
                 (let/cc $return
                   ,@(for/list ([id (in-list local-regs)])
                       `(define ,id #f))
@@ -84,18 +86,32 @@
                              [pop! (lambda ()
                                      (begin0 (car stack)
                                        (set! stack (cdr stack))))]
-                             [split-stack! (lambda (type)
-                                             (let loop ([block-stack null]
-                                                        [remaining (length (functype-params type))])
-                                               (cond
-                                                 [(zero? remaining) (reverse block-stack)]
-                                                 [else (loop (cons (pop!) block-stack) (sub1 remaining))])))]
+                             [split! (lambda (t)
+                                       (let loop ([block-stack null]
+                                                  [remaining (length (functype-params t))])
+                                         (if (zero? remaining)
+                                             (reverse block-stack)
+                                             (loop (cons (pop!) block-stack) (sub1 remaining)))))]
+                             [gen-store! (lambda (off  size convert)
+                                           (define n (pop!))
+                                           (define addr (pop!))
+                                           `(memory-store! $memory (fx+ ,addr ,off) (,convert ,n $buf) ,size))]
+                             [push-load! (lambda (off size convert [sized? #f])
+                                           (define res-name (gensym 'r))
+                                           (define addr (pop!))
+                                           (begin0 `(define ,res-name
+                                                      (let ()
+                                                        (memory-load! $memory $buf (fx+ ,addr ,off) ,size)
+                                                        ,(if sized?
+                                                             `(,convert $buf ,size)
+                                                             `(,convert $buf))))
+                                             (push! res-name)))]
                              [push-call1! (lambda (e)
                                             (push! `(,e ,(pop!))))]
                              [push-call2! (lambda (e)
-                                            (push! `(let ([b ,(pop!)]
-                                                          [a ,(pop!)])
-                                                      (,e a b))))])
+                                            (define b (pop!))
+                                            (define a (pop!))
+                                            (push! `(,e ,a ,b)))])
                         (define exprs
                           (for/fold ([exprs null] #:result (reverse exprs))
                                     ([instr (in-vector instrs)])
@@ -110,7 +126,7 @@
 
                                 [op:block
                                  (define type (instr:block-type instr))
-                                 (define block-stack (split-stack! type))
+                                 (define block-stack (split! type))
                                  (define res-names (make-res-names type))
                                  (define lbl-name (gensym 'label))
                                  (define block
@@ -128,7 +144,7 @@
 
                                 [op:loop
                                  (define type (instr:loop-type instr))
-                                 (define block-stack (split-stack! type))
+                                 (define block-stack (split! type))
                                  (define res-names (make-res-names type))
                                  (define lbl-name (gensym 'label))
                                  (define block
@@ -152,7 +168,7 @@
 
                                 [op:if
                                  (define type (instr:if-type instr))
-                                 (define block-stack (split-stack! type))
+                                 (define block-stack (split! type))
                                  (define res-names (make-res-names type))
                                  (define lbl-name (gensym 'label))
                                  (define block
@@ -237,9 +253,9 @@
                                  (define call
                                    `(let* ([idx ,idx-e]
                                            [funcidx (vector-ref $table idx)]
-                                           [funcsym (string->symbol (format "$func.~a" funcidx))])
+                                           [funcsym (string->symbol (format "$f~a" funcidx))])
                                       (let (,@arg-binders)
-                                        ((eval funcsym (namespace-anchor->namespace $anchor)) ,@(reverse arg-names)))))
+                                        ((eval funcsym $ns) ,@(reverse arg-names)))))
                                  (cond
                                    [(null? res-names) call]
                                    [else
@@ -251,13 +267,10 @@
                                  (void (pop!))]
 
                                 [op:select
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([c  ,(pop!)]
-                                                  [v2 ,(pop!)]
-                                                  [v1 ,(pop!)])
-                                              (if (zero? c) v2 v1)))
-                                   (push! res-name))]
+                                 (define c  (pop!))
+                                 (define v2 (pop!))
+                                 (define v1 (pop!))
+                                 (push! `(if (zero? ,c) ,v2 ,v1))]
 
                                 ;; Variable Instructions
                                 [op:local.get
@@ -267,12 +280,9 @@
                                  `(set! ,(local-name (instr:local.set-idx instr)) ,(pop!))]
 
                                 [op:local.tee
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([a ,(pop!)])
-                                              (begin0 a
-                                                (set! ,(local-name (instr:local.tee-idx instr)) a))))
-                                   (push! res-name))]
+                                 (push! `(let ([a ,(pop!)])
+                                           (begin0 a
+                                             (set! ,(local-name (instr:local.tee-idx instr)) a))))]
 
                                 [op:global.set
                                  `(set! ,(global-name (instr:global.set-idx instr)) ,(pop!))]
@@ -281,162 +291,30 @@
                                  (push! (global-name (instr:global.get-idx instr)))]
 
                                 ;; Memory Instructions
-                                [op:i32.load
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i32.load-offset instr))])
-                                              (memory-load! $memory $buf ea 4)
-                                              (bytes->i32 $buf 4)))
-                                   (push! res-name))]
+                                [op:i32.load     (push-load! (instr:i32.load-offset     instr) 4 'bytes->i32)]
+                                [op:i32.load8_s  (push-load! (instr:i32.load8_s-offset  instr) 1 'bytes->i32 #t)]
+                                [op:i32.load8_u  (push-load! (instr:i32.load8_u-offset  instr) 1 'bytes->u32 #t)]
+                                [op:i32.load16_s (push-load! (instr:i32.load16_s-offset instr) 2 'bytes->i32 #t)]
+                                [op:i32.load16_u (push-load! (instr:i32.load16_u-offset instr) 2 'bytes->u32 #t)]
+                                [op:i64.load     (push-load! (instr:i64.load-offset     instr) 8 'bytes->i64)]
+                                [op:i64.load8_s  (push-load! (instr:i64.load8_s-offset  instr) 1 'bytes->i64 #t)]
+                                [op:i64.load8_u  (push-load! (instr:i64.load8_u-offset  instr) 1 'bytes->u64 #t)]
+                                [op:i64.load16_s (push-load! (instr:i64.load16_s-offset instr) 2 'bytes->i64 #t)]
+                                [op:i64.load16_u (push-load! (instr:i64.load16_u-offset instr) 2 'bytes->u64 #t)]
+                                [op:i64.load32_s (push-load! (instr:i64.load32_s-offset instr) 4 'bytes->i64 #t)]
+                                [op:i64.load32_u (push-load! (instr:i64.load32_u-offset instr) 4 'bytes->u64 #t)]
+                                [op:f32.load     (push-load! (instr:f32.load-offset     instr) 4 'bytes->f32)]
+                                [op:f64.load     (push-load! (instr:f64.load-offset     instr) 8 'bytes->f64)]
 
-                                [op:i32.load8_u
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i32.load8_u-offset instr))])
-                                              (memory-load! $memory $buf ea 1)
-                                              (bytes->u32 $buf 1)))
-                                   (push! res-name))]
-
-                                [op:i32.load8_s
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i32.load8_s-offset instr))])
-                                              (memory-load! $memory $buf ea 1)
-                                              (bytes->i32 $buf 1)))
-                                   (push! res-name))]
-
-                                [op:i32.load16_s
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i32.load16_s-offset instr))])
-                                              (memory-load! $memory $buf ea 2)
-                                              (bytes->i32 $buf 2)))
-                                   (push! res-name))]
-
-                                [op:i32.load16_u
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i32.load16_u-offset instr))])
-                                              (memory-load! $memory $buf ea 2)
-                                              (bytes->u32 $buf 2)))
-                                   (push! res-name))]
-
-                                [op:i64.load
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i64.load-offset instr))])
-                                              (memory-load! $memory $buf ea 8)
-                                              (bytes->i64 $buf 8)))
-                                   (push! res-name))]
-
-                                [op:i64.load8_u
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i64.load8_u-offset instr))])
-                                              (memory-load! $memory $buf ea 1)
-                                              (bytes->u64 $buf 1)))
-                                   (push! res-name))]
-
-                                [op:i64.load8_s
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i64.load8_s-offset instr))])
-                                              (memory-load! $memory $buf ea 1)
-                                              (bytes->i64 $buf 1)))
-                                   (push! res-name))]
-
-                                [op:i64.load16_s
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i64.load16_s-offset instr))])
-                                              (memory-load! $memory $buf ea 2)
-                                              (bytes->i64 $buf 2)))
-                                   (push! res-name))]
-
-                                [op:i64.load16_u
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i64.load16_u-offset instr))])
-                                              (memory-load! $memory $buf ea 2)
-                                              (bytes->u64 $buf 2)))
-                                   (push! res-name))]
-
-                                [op:i64.load32_s
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i64.load32_s-offset instr))])
-                                              (memory-load! $memory $buf ea 4)
-                                              (bytes->i64 $buf 4)))
-                                   (push! res-name))]
-
-                                [op:i64.load32_u
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:i64.load32_u-offset instr))])
-                                              (memory-load! $memory $buf ea 4)
-                                              (bytes->u64 $buf 4)))
-                                   (push! res-name))]
-
-                                [op:f32.load
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:f32.load-offset instr))])
-                                              (memory-load! $memory $buf ea 4)
-                                              (bytes->f32 $buf)))
-                                   (push! res-name))]
-
-                                [op:f64.load
-                                 (define res-name (gensym 'res))
-                                 (begin0 `(define ,res-name
-                                            (let ([ea (+ ,(pop!) ,(instr:f64.load-offset instr))])
-                                              (memory-load! $memory $buf ea 8)
-                                              (bytes->f64 $buf)))
-                                   (push! res-name))]
-
-                                [op:i32.store
-                                 `(let ([n ,(pop!)]
-                                        [ea (+ ,(pop!) ,(instr:i32.store-offset instr))])
-                                    (memory-store! $memory ea (i32->bytes n $buf) 4))]
-
-                                [op:i32.store8
-                                 `(let ([n ,(pop!)]
-                                        [ea (+ ,(pop!) ,(instr:i32.store8-offset instr))])
-                                    (memory-store! $memory ea (i32->bytes n $buf) 1))]
-
-                                [op:i32.store16
-                                 `(let ([n ,(pop!)]
-                                        [ea (+ ,(pop!) ,(instr:i32.store16-offset instr))])
-                                    (memory-store! $memory ea (i32->bytes n $buf) 2))]
-
-                                [op:i64.store
-                                 `(let ([n ,(pop!)]
-                                        [ea (+ ,(pop!) ,(instr:i64.store-offset instr))])
-                                    (memory-store! $memory ea (i64->bytes n $buf) 8))]
-
-                                [op:i64.store8
-                                 `(let ([n ,(pop!)]
-                                        [ea (+ ,(pop!) ,(instr:i64.store8-offset instr))])
-                                    (memory-store! $memory ea (i64->bytes n $buf) 1))]
-
-                                [op:i64.store16
-                                 `(let ([n ,(pop!)]
-                                        [ea (+ ,(pop!) ,(instr:i64.store16-offset instr))])
-                                    (memory-store! $memory ea (i64->bytes n $buf) 2))]
-
-                                [op:i64.store32
-                                 `(let ([n ,(pop!)]
-                                        [ea (+ ,(pop!) ,(instr:i64.store32-offset instr))])
-                                    (memory-store! $memory ea (i64->bytes n $buf) 4))]
-
-                                [op:f32.store
-                                 `(let ([n ,(pop!)]
-                                        [ea (+ ,(pop!) ,(instr:f32.store-offset instr))])
-                                    (memory-store! $memory ea (f32->bytes n $buf) 4))]
-
-                                [op:f64.store
-                                 `(let ([n ,(pop!)]
-                                        [ea (+ ,(pop!) ,(instr:f64.store-offset instr))])
-                                    (memory-store! $memory ea (f64->bytes n $buf) 8))]
+                                [op:i32.store   (gen-store! (instr:i32.store-offset   instr) 4 'i32->bytes)]
+                                [op:i32.store8  (gen-store! (instr:i32.store8-offset  instr) 1 'i32->bytes)]
+                                [op:i32.store16 (gen-store! (instr:i32.store16-offset instr) 2 'i32->bytes)]
+                                [op:i64.store   (gen-store! (instr:i64.store-offset   instr) 8 'i64->bytes)]
+                                [op:i64.store8  (gen-store! (instr:i64.store8-offset  instr) 1 'i64->bytes)]
+                                [op:i64.store16 (gen-store! (instr:i64.store16-offset instr) 2 'i64->bytes)]
+                                [op:i64.store32 (gen-store! (instr:i64.store32-offset instr) 4 'i64->bytes)]
+                                [op:f32.store   (gen-store! (instr:f32.store-offset   instr) 4 'f32->bytes)]
+                                [op:f64.store   (gen-store! (instr:f64.store-offset   instr) 8 'f64->bytes)]
 
                                 [op:memory.size
                                  (push! '(memory-size $memory))]
@@ -628,13 +506,13 @@
     (gensym 'res)))
 
 (define (func-name idx)
-  (string->symbol (format "$func.~a" idx)))
+  (string->symbol (format "$f~a" idx)))
 
 (define (arg-name idx)
-  (string->symbol (format "$arg.~a" idx)))
+  (string->symbol (format "$a~a" idx)))
 
 (define (global-name idx)
-  (string->symbol (format "$global.~a" idx)))
+  (string->symbol (format "$g~a" idx)))
 
 (define (local-name idx)
-  (string->symbol (format "$local.~a" idx)))
+  (string->symbol (format "$l~a" idx)))
