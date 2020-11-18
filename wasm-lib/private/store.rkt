@@ -72,14 +72,13 @@
 
 (define (store-add-elements s m)
   (define table (store-table s))
-  (define functions (store-functions s))
   (begin0 s
     (for ([e (in-vector (mod-elements m))])
       (match-define (element _ (vector (instr:i32.const _ offset)) init) e)
-      (for ([it  (in-vector init)]
+      (for ([it (in-vector init)]
             [tblidx (in-naturals offset)])
         (match-define (funcidx idx) it)
-        (vector-set! table tblidx (vector-ref functions idx))))))
+        (vector-set! table tblidx idx)))))
 
 (define (store-add-functions s m)
   (define types (mod-types m))

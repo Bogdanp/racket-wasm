@@ -183,7 +183,8 @@
                      (match stack
                        [(cons idx stack)
                         (define type (vector-ref types typeidx))
-                        (define func (vector-ref table idx))
+                        (define funcidx (vector-ref table idx))
+                        (define func (vector-ref funcs funcidx))
                         (define-values (args stack-remainder)
                           (split-at stack (length (functype-params type))))
                         (values #f #f (append (vm-apply* func (reverse args)) stack-remainder))])]
