@@ -94,7 +94,7 @@
                                             (if (zero? remaining)
                                                 (reverse block-stack)
                                                 (loop (cons (pop!) block-stack) (sub1 remaining)))))]
-                                [gen-store! (lambda (off  size convert)
+                                [gen-store! (lambda (off size convert)
                                               (define n (pop!))
                                               (define addr (pop!))
                                               `(memory-store! $mem (fx+ ,addr ,off) (,convert ,n $buf) ,size))]
@@ -149,25 +149,13 @@
                                     (define type (instr:loop-type instr))
                                     (define block-stack (split! type))
                                     (define res-names (make-res-names type))
-                                    (define lbl-name (gensym '$lbl))
+                                    (define lbl-name (gensym '$loop))
                                     (define block
                                       (cond
                                         [(instr:loop-code instr)
                                          => (lambda (loop-instrs)
-                                              (try-eliminate-label
-                                               `(let/cc $break
-                                                  (let loop ()
-                                                    ,(try-eliminate-label
-                                                      `(let/cc ,lbl-name
-                                                         ,@(cond
-                                                             [(null? res-names)
-                                                              `(,@(compile-block loop-instrs (cons lbl-name labels) block-stack)
-                                                                ($break))]
-                                                             [else
-                                                              `((define-values (,@res-names)
-                                                                  (let () ,@(compile-block loop-instrs (cons lbl-name labels) block-stack)))
-                                                                ($break ,@res-names))])))
-                                                    (loop)))))]
+                                              (define code (compile-block loop-instrs (cons lbl-name labels) block-stack))
+                                              `(let ,lbl-name () ,@code))]
                                         [else '(void)]))
                                     (cond
                                       [(null? res-names) block]
@@ -204,7 +192,8 @@
                                          (for-each push! res-names))])]
 
                                    [op:return
-                                    `($return ,@stack)]
+                                    (begin0 `($return ,@stack)
+                                      (set! stack null))]
 
                                    [op:br
                                     (define lbl (instr:br-lbl instr))
