@@ -58,6 +58,12 @@
                #:break (localfunc? f)
                `(set! ,(func-name i) (externfunc-f (vector-ref functions ,i)))))
 
+         (define ($load addr off convert size sized?)
+           (memory-load! $mem $buf (fx+ addr off) size)
+           (if sized?
+               (convert $buf size)
+               (convert $buf)))
+
          (define ($indirect idx . args)
            (define funcidx (vector-ref $tbl idx))
            (define funcsym (string->symbol (format "$f~a" funcidx)))
@@ -111,11 +117,7 @@
                                                (define res-name (gensym 'r))
                                                (define addr (pop!))
                                                (begin0 `(define ,res-name
-                                                          (let ()
-                                                            (memory-load! $mem $buf (fx+ ,addr ,off) ,size)
-                                                            ,(if sized?
-                                                                 `(,convert $buf ,size)
-                                                                 `(,convert $buf))))
+                                                          ($load ,addr ,off ,convert ,size ,(if sized? #t #f)))
                                                  (push! res-name)))]
                                  [push-call1! (lambda (e)
                                                 (push! `(,e ,(pop!))))]
