@@ -236,14 +236,12 @@
                                        (match (vector-ref (store-functions s) idx)
                                          [(externfunc type _) (values type (func-name idx))]
                                          [(localfunc  type _) (values type (func-name idx))]))
-                                     (define arg-names (make-arg-names type))
                                      (define res-names (make-res-names type))
-                                     (define arg-binders
-                                       (for/list ([arg-name (in-list arg-names)])
-                                         `(,arg-name ,(pop!))))
+                                     (define args
+                                       (for/list ([_ (in-range (arg-count type))])
+                                         (pop!)))
                                      (define call
-                                       `(let (,@arg-binders)
-                                          (,name ,@(reverse arg-names))))
+                                       `(,name ,@(reverse args)))
                                      (cond
                                        [(null? res-names) call]
                                        [else
@@ -253,15 +251,13 @@
                                     [op:call_indirect
                                      (define typeidx (instr:call_indirect-idx instr))
                                      (define type (vector-ref (mod-types m) typeidx))
-                                     (define arg-names (make-arg-names type))
                                      (define res-names (make-res-names type))
                                      (define idx-e (pop!))
-                                     (define arg-binders
-                                       (for/list ([arg-name (in-list arg-names)])
-                                         `[,arg-name ,(pop!)]))
+                                     (define args
+                                       (for/list ([_ (in-range (arg-count type))])
+                                         (pop!)))
                                      (define call
-                                       `(let (,@arg-binders)
-                                          ($indirect ,idx-e ,@(reverse arg-names))))
+                                       `($indirect ,idx-e ,@(reverse args)))
                                      (cond
                                        [(null? res-names) call]
                                        [else
@@ -570,9 +566,8 @@
 
     [_ e]))
 
-(define (make-arg-names type)
-  (for/list ([i (in-range (sub1 (length (functype-params type))) -1 -1)])
-    (arg-name i)))
+(define (arg-count type)
+  (length (functype-params type)))
 
 (define (make-res-names type)
   (for/list ([_ (in-range (length (functype-results type)))])
