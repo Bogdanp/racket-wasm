@@ -509,7 +509,11 @@
            [else #f])))
      (cond
        [used? e]
-       [else `(let () ,@body)])]))
+       [else
+        (match body
+          [`(,(? number? n)) n]
+          [`((cond ,clauses ...)) `(cond ,@clauses)]
+          [_ `(let () ,@body)])])]))
 
 (define (try-rewrite-switch e)
   (match e
@@ -577,9 +581,6 @@
 
 (define (func-name idx)
   (string->symbol (format "$f~a" idx)))
-
-(define (arg-name idx)
-  (string->symbol (format "$a~a" idx)))
 
 (define (global-name idx)
   (string->symbol (format "$g~a" idx)))
