@@ -90,11 +90,11 @@
              (define local-regs (for/list ([idx (in-range argc (+ argc localc))])
                                   (local-name idx)))
              `(define (,(func-name i) ,@arg-regs)
+                ,@(for/list ([id (in-list local-regs)])
+                    `(define ,id #f))
                 ,(resugar
                   (try-eliminate-label
                    `(let/cc $return
-                      ,@(for/list ([id (in-list local-regs)])
-                          `(define ,id #f))
                       ,@(let compile-block ([instrs (code-instrs code)]
                                             [labels '($return)]
                                             [stack null])
@@ -117,7 +117,7 @@
                                                (define res-name (gensym 'r))
                                                (define addr (pop!))
                                                (begin0 `(define ,res-name
-                                                          ($load ,addr ,off ,convert ,size ,(if sized? #t #f)))
+                                                          ($load ,addr ,off ,convert ,size ,sized?))
                                                  (push! res-name)))]
                                  [push-call1! (lambda (e)
                                                 (push! `(,e ,(pop!))))]
