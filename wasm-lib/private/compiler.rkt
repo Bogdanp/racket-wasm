@@ -535,6 +535,12 @@
 
 (define (resugar e)
   (match e
+    [`(cond
+        [(zero? ,cond-e) (void)]
+        [else ,else-es ...])
+     `(unless (zero? ,cond-e)
+        ,@(map resugar else-es))]
+
     [`(switch/todo (case ,case-e ,clauses ...) ,parts)
      (define (get-code label)
        (define code
@@ -545,27 +551,28 @@
          [(null? code) '((void))]
          [else code]))
 
-     `(switch ,case-e
-        ,@(for/fold ([res-clauses null]
-                     [last-label #f]
-                     #:result (reverse res-clauses))
-                    ([clause (in-list clauses)])
-            (define-values (label res-clause)
-              (match clause
-                [`((,lit) (,label))
-                 (values label `[(,lit) ,@(get-code label)])]
-                [`(else (,label))
-                 (values label `[else ,@(get-code label)])]))
-            (cond
-              [(eq? label last-label)
-               (define new-res-clauses
-                 (match* (res-clauses res-clause)
-                   [(`([,lits ,code ...] ,res-clauses ...)
-                     `((,lit) ,_ ...))
-                    (cons `[(,@(cons lit lits)) ,@code] res-clauses)]))
-               (values new-res-clauses label)]
-              [else
-               (values (cons res-clause res-clauses) label)])))]
+     (resugar
+      `(switch ,case-e
+         ,@(for/fold ([res-clauses null]
+                      [last-label #f]
+                      #:result (reverse res-clauses))
+                     ([clause (in-list clauses)])
+             (define-values (label res-clause)
+               (match clause
+                 [`((,lit) (,label))
+                  (values label `[(,lit) ,@(get-code label)])]
+                 [`(else (,label))
+                  (values label `[else ,@(get-code label)])]))
+             (cond
+               [(eq? label last-label)
+                (define new-res-clauses
+                  (match* (res-clauses res-clause)
+                    [(`([,lits ,code ...] ,res-clauses ...)
+                      `((,lit) ,_ ...))
+                     (cons `[(,@(cons lit lits)) ,@code] res-clauses)]))
+                (values new-res-clauses label)]
+               [else
+                (values (cons res-clause res-clauses) label)]))))]
 
     [(? list?)
      (map resugar e)]
