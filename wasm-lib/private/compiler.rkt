@@ -58,6 +58,11 @@
                #:break (localfunc? f)
                `(set! ,(func-name i) (externfunc-f (vector-ref functions ,i)))))
 
+         (define ($indirect idx . args)
+           (define funcidx (vector-ref $tbl idx))
+           (define funcsym (string->symbol (format "$f~a" funcidx)))
+           (apply (eval funcsym $ns) args))
+
          ,@(for/list ([e (in-vector (mod-exports m))])
              (define export-id (string->symbol (export-name e)))
              (match (export-description e)
@@ -255,11 +260,8 @@
                                        (for/list ([arg-name (in-list arg-names)])
                                          `[,arg-name ,(pop!)]))
                                      (define call
-                                       `(let* ([idx ,idx-e]
-                                               [funcidx (vector-ref $tbl idx)]
-                                               [funcsym (string->symbol (format "$f~a" funcidx))])
-                                          (let (,@arg-binders)
-                                            ((eval funcsym $ns) ,@(reverse arg-names)))))
+                                       `(let (,@arg-binders)
+                                          ($indirect ,idx-e ,@(reverse arg-names))))
                                      (cond
                                        [(null? res-names) call]
                                        [else
