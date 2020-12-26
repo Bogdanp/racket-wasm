@@ -79,7 +79,7 @@
              (define local-regs (for/list ([idx (in-range argc (+ argc localc))])
                                   (local-name idx)))
              `(define (,(func-name i) ,@arg-regs)
-                ,(try-rewrite-switch
+                ,(resugar
                   (try-eliminate-label
                    `(let/cc $return
                       ,@(for/list ([id (in-list local-regs)])
@@ -136,7 +136,7 @@
                                      (define res-names (make-res-names type))
                                      (define lbl-name (gensym '$lbl))
                                      (define block
-                                       (try-rewrite-switch/partial
+                                       (try-rewrite-switch
                                         (try-eliminate-label
                                          `(let/cc ,lbl-name
                                             ,@(cond
@@ -511,29 +511,27 @@
        [used? e]
        [else `(let () ,@body)])]))
 
-(define (try-rewrite-switch/partial e)
+(define (try-rewrite-switch e)
   (match e
     [`(let/cc ,outer-lbl
         (let/cc ,inner-lbl
           ,(and `(case ,_ ,_ ...) the-case))
         ,outer-body ...)
      `(let/cc ,outer-lbl
-        (switch/partial ,the-case ((,inner-lbl ,outer-body))))]
+        (switch/todo ,the-case ((,inner-lbl ,outer-body))))]
 
     [`(let/cc ,outer-lbl
         (let/cc ,inner-lbl
-          (switch/partial ,the-case ,parts))
+          (switch/todo ,the-case ,parts))
         ,outer-body ...)
      `(let/cc ,outer-lbl
-        (switch/partial ,the-case ((,inner-lbl ,outer-body) ,@parts)))]
+        (switch/todo ,the-case ((,inner-lbl ,outer-body) ,@parts)))]
 
     [_ e]))
 
-(define (try-rewrite-switch e)
+(define (resugar e)
   (match e
-    [`(switch/partial ,the-case ,parts)
-     (match-define `(case ,case-e ,clauses ...) the-case)
-
+    [`(switch/todo (case ,case-e ,clauses ...) ,parts)
      (define (get-code label)
        (define code
          (for/first ([p (in-list parts)] #:when (eq? (car p) label))
@@ -564,8 +562,10 @@
                (values new-res-clauses label)]
               [else
                (values (cons res-clause res-clauses) label)])))]
+
     [(? list?)
-     (map try-rewrite-switch e)]
+     (map resugar e)]
+
     [_ e]))
 
 (define (make-arg-names type)
