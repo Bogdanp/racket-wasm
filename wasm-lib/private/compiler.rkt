@@ -112,7 +112,8 @@
                                  [gen-store! (lambda (off size convert)
                                                (define n (pop!))
                                                (define addr (pop!))
-                                               `(memory-store! $mem (fx+ ,addr ,off) (,convert ,n $buf) ,size))]
+                                               (define addr* (if (zero? off) addr `(fx+ ,addr ,off)))
+                                               `(memory-store! $mem ,addr* (,convert ,n $buf) ,size))]
                                  [push-load! (lambda (off size convert [sized? #f])
                                                (define res-name (gensym 'r))
                                                (define addr (pop!))
