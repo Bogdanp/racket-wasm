@@ -284,9 +284,9 @@
                                      `(set! ,(local-name (instr:local.set-idx instr)) ,(pop!))]
 
                                     [op:local.tee
-                                     (push! `(let ([a ,(pop!)])
-                                               (begin0 a
-                                                 (set! ,(local-name (instr:local.tee-idx instr)) a))))]
+                                     (push! `(let ([tmp ,(pop!)])
+                                               (set! ,(local-name (instr:local.tee-idx instr)) tmp)
+                                               tmp))]
 
                                     [op:global.set
                                      `(set! ,(global-name (instr:global.set-idx instr)) ,(pop!))]
