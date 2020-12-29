@@ -3,12 +3,14 @@
 #|review: ignore|#
 
 (require racket/match
+         threading
          wasm/private/error
          wasm/private/memory
          wasm/private/runtime
          wasm/private/store
          wasm/private/switch
          "core.rkt"
+         "custom-name-section.rkt"
          "opcase.rkt")
 
 (provide
@@ -27,6 +29,7 @@
     (define the-mod
       `(module ,name racket/base
          (require racket/fixnum
+                  (submod wasm/private/compiler support)
                   (only-in wasm/private/error trap)
                   wasm/private/memory
                   wasm/private/runtime
@@ -90,6 +93,7 @@
              (define local-regs (for/list ([idx (in-range argc (+ argc localc))])
                                   (local-name idx)))
              `(define (,(func-name i) ,@arg-regs)
+                (comment ,(func-debug-name m i))
                 ,@(for/list ([id (in-list local-regs)])
                     `(define ,id #f))
                 ,(resugar
@@ -209,9 +213,10 @@
                                        (set! stack null))]
 
                                     [op:br
+                                     ;; FIXME: blocks can take params.
                                      (define lbl (instr:br-lbl instr))
                                      (define lbl-name (list-ref labels lbl))
-                                     `(,lbl-name ,@stack)]
+                                     `(,lbl-name #;,@stack)]
 
                                     [op:br_if
                                      (define lbl (instr:br_if-lbl instr))
@@ -595,3 +600,16 @@
 
 (define (local-name idx)
   (string->symbol (format "$l~a" idx)))
+
+(define (func-debug-name m idx)
+  (and~>
+   (mod-customs m)
+   (findf name-section? _)
+   (name-section-function-names _)
+   (hash-ref _ idx #f)))
+
+(module support racket/base
+  (require (for-syntax racket/base))
+  (provide comment)
+  (define-syntax-rule (comment e0 e ...)
+    (void)))
