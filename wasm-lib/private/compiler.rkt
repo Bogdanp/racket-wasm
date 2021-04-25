@@ -28,6 +28,7 @@
     (namespace-attach-module caller-ns 'wasm/private/switch)
     (define the-mod
       `(module ,name racket/base
+         (#%declare #:unsafe)
          (require racket/fixnum
                   (submod wasm/private/compiler support)
                   (only-in wasm/private/error trap)

@@ -6,8 +6,8 @@
 
 (provide opcase)
 
-(begin-for-syntax
-  (define ns (current-namespace)))
+(define-for-syntax ns
+  (current-namespace))
 
 (define-syntax-parser opcase
   #:literals (else)
