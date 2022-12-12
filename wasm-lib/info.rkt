@@ -1,7 +1,8 @@
 #lang info
 
+(define license 'BSD-3-Clause)
 (define collection "wasm")
-(define version "0.0.0")
+(define version "0.1")
 (define deps '("base"
                "data-lib"
                "threading-lib"))
