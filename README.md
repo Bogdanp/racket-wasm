@@ -10,6 +10,6 @@ WIP [Wasm] tooling in Racket.
 * [ ] Implement text format writer.
 * [x] Implement validation.
 * [x] Implement VM.
-* [ ] Implement Wasm->Racket compiler.
+* [x] Implement Wasm `->` Racket compiler.
 
 [Wasm]: https://webassembly.org/
