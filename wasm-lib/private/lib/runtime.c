@@ -365,9 +365,9 @@ uint64_t itrunc_sat64_64_u(double a) {
 
 int64_t itrunc_sat64_64_s(double a) {
   double ta = trunc(a);
-  if (ta < -0x8000000000000000) {
+  if (ta < -pow(2, 63)) {
     return -0x8000000000000000;
-  } else if (ta > 0x7FFFFFFFFFFFFFFF) {
+  } else if (ta > pow(2, 63)-1) {
     return 0x7FFFFFFFFFFFFFFF;
   }
   return (int64_t)ta;
