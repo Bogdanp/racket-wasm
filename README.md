@@ -1,6 +1,7 @@
 # racket-wasm
 
-WIP [Wasm] tooling in Racket.
+WIP [Wasm] implementation in Racket.  For running WASM code in Racket
+(but not Racket in WASM).
 
 ## TODOs
 
